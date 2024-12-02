@@ -16,34 +16,42 @@ pub const SBPFVersion = enum {
 };
 
 pub const Instruction = packed struct(u64) {
-    class: Class,
-    /// Operand code.
-    opcode: Opcode,
-    /// Destination register operand.
+    opcode: OpCode,
     dst: Register,
-    /// Source register operand.
     src: Register,
-    /// Offset operand.
     off: i16,
-    /// Immediate value operand.
     imm: u32,
 
-    pub const Class = enum(u3) {
-        // zig fmt: off
-        ld    = 0b000,
-        ldx   = 0b001,
-        st    = 0b010,
-        stx   = 0b011,
-        alu   = 0b100,
-        jmp   = 0b101,
-        jmp32 = 0b110,
-        alu64 = 0b111,
-        // zig fmt: on
-    };
-
-    pub const Opcode = enum(u5) {
-        ldxdw = 0b01111,
+    const OpCode = enum(u8) {
+        mov64_reg = alu64_store | x | mov,
+        exit = jmp | exit,
         _,
+
+        /// load from immediate
+        const ld = 0b0000;
+        /// load from register
+        const ldx = 0b0001;
+        /// store immediate
+        const st = 0b0010;
+        /// store valu from register
+        const stx = 0b0011;
+        /// 32 bit arithmetic or load
+        const alu32_load = 0b0100;
+        /// control flow
+        const jmp = 0b0101;
+        /// product / quotient / remainder
+        const pqr = 0b0110;
+        /// 64 bit arithmetic or store
+        const alu64_store = 0b0111;
+
+        /// source operand modifier: `src` register
+        const x = 0b1000;
+
+        /// alu64 op code: move
+        const mov = 0b10110000;
+
+        /// jmp op code: return from program
+        const exit = 0b10010000;
     };
 
     pub const Register = enum(u4) {
@@ -74,6 +82,18 @@ pub const Instruction = packed struct(u64) {
         /// Program counter, Hidden register
         pc,
     };
+
+    pub fn format(
+        inst: Instruction,
+        comptime fmt: []const u8,
+        _: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        comptime assert(fmt.len == 0);
+
+        try writer.print("{}", .{inst.opcode});
+    }
 };
 
 const std = @import("std");
+const assert = std.debug.assert;
