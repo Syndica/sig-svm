@@ -13,6 +13,7 @@ handle: std.fs.File,
 header: elf.Elf64_Ehdr,
 shdrs: std.ArrayListUnmanaged(elf.Elf64_Shdr) = .{},
 strtab: std.ArrayListUnmanaged(u8) = .{},
+entry_pc: u64,
 
 pub fn parse(allocator: Allocator, input_file: std.fs.File) !Input {
     const header_buffer = try preadAllAlloc(allocator, input_file, 0, @sizeOf(elf.Elf64_Ehdr));
@@ -21,6 +22,7 @@ pub fn parse(allocator: Allocator, input_file: std.fs.File) !Input {
     var input: Input = .{
         .header = @as(*align(1) const elf.Elf64_Ehdr, @ptrCast(header_buffer)).*,
         .handle = input_file,
+        .entry_pc = undefined,
     };
 
     // section header offset
@@ -40,23 +42,16 @@ pub fn parse(allocator: Allocator, input_file: std.fs.File) !Input {
     defer allocator.free(shstrtab);
     try input.strtab.appendSlice(allocator, shstrtab);
 
+    const text_section = input.getShdrByName(".text").?;
+    const offset = input.header.e_entry -| text_section.sh_addr;
+    input.entry_pc = try std.math.divExact(u64, offset, 8);
+
     return input;
 }
 
 pub fn deinit(input: *Input, allocator: Allocator) void {
     input.shdrs.deinit(allocator);
     input.strtab.deinit(allocator);
-}
-
-pub fn run(input: *Input, allocator: std.mem.Allocator) !void {
-    const instructions = try input.getInstructions(allocator);
-    defer allocator.free(instructions);
-
-    for (instructions) |inst| {
-        switch (inst.opcode) {
-            else => std.debug.panic("TODO: run {d}", .{inst.opcode}),
-        }
-    }
 }
 
 /// Validates the Input. Returns errors for issues encountered.
@@ -143,7 +138,7 @@ pub fn validate(input: *Input) !void {
     }
 }
 
-fn getInstructions(input: *const Input, allocator: std.mem.Allocator) ![]const ebpf.Instruction {
+pub fn getInstructions(input: *const Input, allocator: std.mem.Allocator) ![]const ebpf.Instruction {
     const text_section_index = input.getShdrIndexByName(".text") orelse
         return error.ShdrNotFound;
     const text_bytes: []align(@alignOf(ebpf.Instruction)) u8 =

@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const Input = @import("Input.zig");
+const Vm = @import("Vm.zig");
 
 pub fn main() !void {
     var gpa: std.heap.GeneralPurposeAllocator(.{}) = .{};
@@ -34,7 +35,10 @@ pub fn main() !void {
     defer input.deinit(allocator);
 
     try input.validate();
-    try input.run(allocator);
+
+    var vm = try Vm.init(&input, allocator);
+    defer vm.deinit();
+    try vm.run();
 }
 
 fn fail(comptime fmt: []const u8, args: anytype) noreturn {
