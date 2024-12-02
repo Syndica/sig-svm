@@ -34,7 +34,7 @@ pub fn main() !void {
     defer input.deinit(allocator);
 
     try input.validate();
-    try input.relocate(allocator);
+    try input.run(allocator);
 }
 
 fn fail(comptime fmt: []const u8, args: anytype) noreturn {

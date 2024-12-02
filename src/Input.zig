@@ -48,6 +48,17 @@ pub fn deinit(input: *Input, allocator: Allocator) void {
     input.strtab.deinit(allocator);
 }
 
+pub fn run(input: *Input, allocator: std.mem.Allocator) !void {
+    const instructions = try input.getInstructions(allocator);
+    defer allocator.free(instructions);
+
+    for (instructions) |inst| {
+        switch (inst.opcode) {
+            else => std.debug.panic("TODO: run {d}", .{inst.opcode}),
+        }
+    }
+}
+
 /// Validates the Input. Returns errors for issues encountered.
 pub fn validate(input: *Input) !void {
     const header = input.header;
@@ -132,18 +143,12 @@ pub fn validate(input: *Input) !void {
     }
 }
 
-/// Relocates the Input in place.
-pub fn relocate(input: *Input, allocator: Allocator) !void {
+fn getInstructions(input: *const Input, allocator: std.mem.Allocator) ![]const ebpf.Instruction {
     const text_section_index = input.getShdrIndexByName(".text") orelse
         return error.ShdrNotFound;
-    const text_bytes = try input.preadShdrContentsAlloc(allocator, text_section_index);
-    defer allocator.free(text_bytes);
-
-    const instruction_count = try std.math.divTrunc(usize, text_bytes.len, 8);
-    for (0..instruction_count) |pc| {
-        const inst: ebpf.Instruction = @bitCast(text_bytes[8 * pc ..][0..8].*);
-        std.debug.print("inst: {}\n", .{inst});
-    }
+    const text_bytes: []align(@alignOf(ebpf.Instruction)) u8 =
+        @alignCast(try input.preadShdrContentsAlloc(allocator, text_section_index));
+    return std.mem.bytesAsSlice(ebpf.Instruction, text_bytes);
 }
 
 /// Allocates, reads, and returns the contents of a section header.
