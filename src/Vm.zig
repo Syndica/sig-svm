@@ -1,32 +1,27 @@
 const std = @import("std");
-const Input = @import("Input.zig");
+const Executable = @import("Executable.zig");
 const ebpf = @import("ebpf.zig");
 const Vm = @This();
 
 const log = std.log.scoped(.vm);
 
 allocator: std.mem.Allocator,
-input: *const Input,
-instructions: []const ebpf.Instruction,
-
+executable: *const Executable,
 registers: std.EnumArray(ebpf.Instruction.Register, u64),
 
-pub fn init(input: *const Input, allocator: std.mem.Allocator) !Vm {
+pub fn init(executable: *const Executable, allocator: std.mem.Allocator) !Vm {
     var vm: Vm = .{
-        .input = input,
+        .executable = executable,
         .allocator = allocator,
         .registers = std.EnumArray(ebpf.Instruction.Register, u64).initFill(0),
-        .instructions = try input.getInstructions(allocator),
     };
-
-    vm.registers.set(.pc, input.entry_pc);
+    vm.registers.set(.pc, executable.entry_pc);
 
     return vm;
 }
 
 pub fn deinit(vm: *Vm) void {
-    const allocator = vm.allocator;
-    allocator.free(vm.instructions);
+    _ = vm;
 }
 
 pub fn run(vm: *Vm) !void {
@@ -38,7 +33,7 @@ pub fn run(vm: *Vm) !void {
 fn step(vm: *Vm) !bool {
     const pc = vm.registers.get(.pc);
     var next_pc = pc + 1;
-    const inst = vm.instructions[pc];
+    const inst = vm.executable.instructions[pc];
 
     switch (inst.opcode) {
         .mov64_reg => vm.registers.set(inst.dst, vm.registers.get(inst.src)),
@@ -47,11 +42,6 @@ fn step(vm: *Vm) !bool {
             const target_pc = inst.imm;
             next_pc = target_pc;
             std.debug.print("target pc: {}\n", .{target_pc});
-        },
-        .ld_dw_imm => {
-            const large_immediate = @as(u64, inst.imm) | @as(u64, @bitCast(vm.instructions[pc + 1]));
-            vm.registers.set(inst.dst, large_immediate);
-            next_pc += 1;
         },
         else => std.debug.panic("TODO: step {s}", .{@tagName(inst.opcode)}),
     }

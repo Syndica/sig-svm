@@ -1,7 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const Input = @import("Input.zig");
+const Elf = @import("Elf.zig");
+const Executable = @import("Executable.zig");
 const Vm = @import("Vm.zig");
 
 pub fn main() !void {
@@ -31,14 +32,21 @@ pub fn main() !void {
     const input_file = try std.fs.cwd().openFile(input_path.?, .{});
     defer input_file.close();
 
-    var input = try Input.parse(allocator, input_file);
-    defer input.deinit(allocator);
+    // var elf = try Elf.parse(allocator, input_file);
+    // defer elf.deinit(allocator);
+    // try elf.validate();
 
-    try input.validate();
+    try Executable.fromAsm(allocator,
+        \\entrypoint:
+        \\    mov32 r0, 16
+        \\    exit
+        \\
+    );
+    // defer executable.deinit(allocator);
 
-    var vm = try Vm.init(&input, allocator);
-    defer vm.deinit();
-    try vm.run();
+    // var vm = try Vm.init(&executable, allocator);
+    // defer vm.deinit();
+    // try vm.run();
 }
 
 fn fail(comptime fmt: []const u8, args: anytype) noreturn {

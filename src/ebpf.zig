@@ -25,7 +25,7 @@ pub const Instruction = packed struct(u64) {
     off: i16,
     imm: u32,
 
-    const OpCode = enum(u8) {
+    pub const OpCode = enum(u8) {
         /// BPF opcode: `lddw dst, imm` /// `dst = imm`. [DEPRECATED]
         ld_dw_imm = ld | imm | dw,
         /// bpf opcode: `ldxb dst, [src + off]` /// `dst = (src + off) as u8`.
@@ -257,7 +257,7 @@ pub const Instruction = packed struct(u64) {
         srem64_reg = pqr | b | x | srem,
 
         /// bpf opcode: `ja +off` /// `pc += off`.
-        ja = jmp | ja,
+        ja = jmp | 0x0,
         /// bpf opcode: `jeq dst, imm, +off` /// `pc += off if dst == imm`.
         jeq_imm = jmp | k | jeq,
         /// bpf opcode: `jeq dst, src, +off` /// `pc += off if dst == src`.
@@ -309,138 +309,167 @@ pub const Instruction = packed struct(u64) {
         call_reg = jmp | x | call,
 
         /// bpf opcode: `exit` /// `return r0`. /// valid only until sbpfv3
-        exit = jmp | exit,
+        exit = jmp | exit_code,
 
         /// bpf opcode: `return` /// `return r0`. /// valid only since sbpfv3
-        @"return" = jmp | x | exit,
+        @"return" = jmp | x | exit_code,
         /// bpf opcode: `syscall` /// `syscall imm`. /// valid only since sbpfv3
         // syscall = jmp | syscall,
         _,
-
-        /// load from immediate
-        const ld = 0b0000;
-        /// load from register
-        const ldx = 0b0001;
-        /// store immediate
-        const st = 0b0010;
-        /// store valu from register
-        const stx = 0b0011;
-        /// 32 bit arithmetic  @"or" load
-        const alu32_load = 0b0100;
-        /// control flow
-        const jmp = 0b0101;
-        /// product / quotient / remainder
-        const pqr = 0b0110;
-        /// 64 bit arithmetic  @"or" store
-        const alu64_store = 0b0111;
-
-        /// source operand modifier: `src` register
-        const x = 0b1000;
-        /// source operand modifier: 32-bit immediate value.
-        const k = 0b0000;
-
-        /// size modifier: word (4 bytes).
-        const w: u8 = 0x00;
-        /// size modifier: half-word (2 bytes).
-        const h: u8 = 0x08;
-        /// size modifier: byte (1 byte).
-        const b: u8 = 0x10;
-        /// size modifier: double word (8 bytes).
-        const dw: u8 = 0x18;
-        /// size modifier: 1 byte.
-        const @"1b": u8 = 0x20;
-        /// size modifier: 2 bytes.
-        const @"2b": u8 = 0x30;
-        /// size modifier: 4 bytes.
-        const @"4b": u8 = 0x80;
-        /// size modifier: 8 bytes.
-        const @"8b": u8 = 0x90;
-
-        const ja: u8 = 0x00;
-        ///  jmp operation code: jump if equal.
-        const jeq: u8 = 0x10;
-        ///  jmp operation code: jump if greater than.
-        const jgt: u8 = 0x20;
-        ///  jmp operation code: jump if greater or equal.
-        const jge: u8 = 0x30;
-        ///  jmp operation code: jump if `src` & `reg`.
-        const jset: u8 = 0x40;
-        ///  jmp operation code: jump if not equal.
-        const jne: u8 = 0x50;
-        ///  jmp operation code: jump if greater than (signed).
-        const jsgt: u8 = 0x60;
-        ///  jmp operation code: jump if greater or equal (signed).
-        const jsge: u8 = 0x70;
-        ///  jmp operation code: syscall function call.
-        const call: u8 = 0x80;
-        ///  jmp operation code: return from program.
-        const exit: u8 = 0x90;
-        ///  jmp operation code: static syscall.
-        const syscall: u8 = 0x90;
-        ///  jmp operation code: jump if lower than.
-        const jlt: u8 = 0xa0;
-        ///  jmp operation code: jump if lower or equal.
-        const jle: u8 = 0xb0;
-        ///  jmp operation code: jump if lower than (signed).
-        const jslt: u8 = 0xc0;
-        ///  jmp operation code: jump if lower or equal (signed).
-        const jsle: u8 = 0xd0;
-
-        /// pqr operation code: unsigned high multiplication.
-        const uhmul: u8 = 0x20;
-        /// pqr operation code: unsigned division quotient.
-        const udiv: u8 = 0x40;
-        /// pqr operation code: unsigned division remainder.
-        const urem: u8 = 0x60;
-        /// pqr operation code: low multiplication.
-        const lmul: u8 = 0x80;
-        /// pqr operation code: signed high multiplication.
-        const shmul: u8 = 0xa0;
-        /// pqr operation code: signed division quotient.
-        const sdiv: u8 = 0xc0;
-        /// pqr operation code: signed division remainder.
-        const srem: u8 = 0xe0;
-
-        /// mode modifier:
-        const imm = 0b0000000;
-        const abs = 0b0100000;
-        const mem = 0b1100000;
-
-        /// alu/alu64 operation code: addition.
-        const add: u8 = 0x00;
-        /// alu/alu64 operation code: subtraction.
-        const sub: u8 = 0x10;
-
-        /// alu/alu64 operation code: multiplication.
-        const mul: u8 = 0x20;
-        /// alu/alu64 operation code: division.
-        const div: u8 = 0x30;
-
-        /// alu/alu64 operation code: or.
-        const @"or": u8 = 0x40;
-        /// alu/alu64 operation code: and.
-        const @"and": u8 = 0x50;
-        /// alu/alu64 operation code: left shift.
-        const lsh: u8 = 0x60;
-        /// alu/alu64 operation code: right shift.
-        const rsh: u8 = 0x70;
-
-        /// alu/alu64 operation code: negation.
-        const neg: u8 = 0x80;
-        /// alu/alu64 operation code: modulus.
-        const mod: u8 = 0x90;
-
-        /// alu/alu64 operation code: exclusive or.
-        const xor: u8 = 0xa0;
-        /// alu/alu64 operation code: move.
-        const mov: u8 = 0xb0;
-        /// alu/alu64 operation code: sign extending right shift.
-        const arsh: u8 = 0xc0;
-        /// alu/alu64 operation code: endianness conversion.
-        const end: u8 = 0xd0;
-        /// alu/alu64 operation code: high or.
-        const hor: u8 = 0xf0;
     };
+
+    const Entry = struct {
+        inst: InstructionType,
+        opc: u8,
+    };
+
+    const InstructionType = union(enum) {
+        alu_binary,
+        alu_unary,
+        load_dw_imm,
+        load_abs,
+        load_ind,
+        load_reg,
+        store_imm,
+        store_reg,
+        jump_unconditional,
+        jump_conditional,
+        syscall,
+        call_imm,
+        call_reg,
+        endian: i64,
+        no_operand,
+    };
+
+    pub const map = std.StaticStringMap(Entry).initComptime(&.{
+        // zig fmt: off
+        .{ "mov32", .{ .inst = .alu_binary, .opc = mov | alu32_load } },
+        .{ "exit",  .{ .inst = .no_operand, .opc = exit_code        } },
+        // zig fmt: on
+    });
+
+    /// load from immediate
+    pub const ld = 0b0000;
+    /// load from register
+    pub const ldx = 0b0001;
+    /// store immediate
+    pub const st = 0b0010;
+    /// store valu from register
+    pub const stx = 0b0011;
+    /// 32 bit arithmetic  @"or" load
+    pub const alu32_load = 0b0100;
+    /// control flow
+    pub const jmp = 0b0101;
+    /// product / quotient / remainder
+    pub const pqr = 0b0110;
+    /// 64 bit arithmetic  @"or" store
+    pub const alu64_store = 0b0111;
+
+    /// source operand modifier: `src` register
+    pub const x = 0b1000;
+    /// source operand modifier: 32-bit immediate value.
+    pub const k = 0b0000;
+
+    /// size modifier: word (4 bytes).
+    pub const w: u8 = 0x00;
+    /// size modifier: half-word (2 bytes).
+    pub const h: u8 = 0x08;
+    /// size modifier: byte (1 byte).
+    pub const b: u8 = 0x10;
+    /// size modifier: double word (8 bytes).
+    pub const dw: u8 = 0x18;
+    /// size modifier: 1 byte.
+    pub const @"1b": u8 = 0x20;
+    /// size modifier: 2 bytes.
+    pub const @"2b": u8 = 0x30;
+    /// size modifier: 4 bytes.
+    pub const @"4b": u8 = 0x80;
+    /// size modifier: 8 bytes.
+    pub const @"8b": u8 = 0x90;
+
+    ///  jmp operation code: jump if equal.
+    pub const jeq: u8 = 0x10;
+    ///  jmp operation code: jump if greater than.
+    pub const jgt: u8 = 0x20;
+    ///  jmp operation code: jump if greater or equal.
+    pub const jge: u8 = 0x30;
+    ///  jmp operation code: jump if `src` & `reg`.
+    pub const jset: u8 = 0x40;
+    ///  jmp operation code: jump if not equal.
+    pub const jne: u8 = 0x50;
+    ///  jmp operation code: jump if greater than (signed).
+    pub const jsgt: u8 = 0x60;
+    ///  jmp operation code: jump if greater or equal (signed).
+    pub const jsge: u8 = 0x70;
+    ///  jmp operation code: syscall function call.
+    pub const call: u8 = 0x80;
+    ///  jmp operation code: return from program.
+    pub const exit_code: u8 = 0x90;
+    ///  jmp operation code: static syscall.
+    pub const syscall: u8 = 0x90;
+    ///  jmp operation code: jump if lower than.
+    pub const jlt: u8 = 0xa0;
+    ///  jmp operation code: jump if lower or equal.
+    pub const jle: u8 = 0xb0;
+    ///  jmp operation code: jump if lower than (signed).
+    pub const jslt: u8 = 0xc0;
+    ///  jmp operation code: jump if lower or equal (signed).
+    pub const jsle: u8 = 0xd0;
+
+    /// pqr operation code: unsigned high multiplication.
+    pub const uhmul: u8 = 0x20;
+    /// pqr operation code: unsigned division quotient.
+    pub const udiv: u8 = 0x40;
+    /// pqr operation code: unsigned division remainder.
+    pub const urem: u8 = 0x60;
+    /// pqr operation code: low multiplication.
+    pub const lmul: u8 = 0x80;
+    /// pqr operation code: signed high multiplication.
+    pub const shmul: u8 = 0xa0;
+    /// pqr operation code: signed division quotient.
+    pub const sdiv: u8 = 0xc0;
+    /// pqr operation code: signed division remainder.
+    pub const srem: u8 = 0xe0;
+
+    /// mode modifier:
+    pub const imm = 0b0000000;
+    pub const abs = 0b0100000;
+    pub const mem = 0b1100000;
+
+    /// alu/alu64 operation code: addition.
+    pub const add: u8 = 0x00;
+    /// alu/alu64 operation code: subtraction.
+    pub const sub: u8 = 0x10;
+
+    /// alu/alu64 operation code: multiplication.
+    pub const mul: u8 = 0x20;
+    /// alu/alu64 operation code: division.
+    pub const div: u8 = 0x30;
+
+    /// alu/alu64 operation code: or.
+    pub const @"or": u8 = 0x40;
+    /// alu/alu64 operation code: and.
+    pub const @"and": u8 = 0x50;
+    /// alu/alu64 operation code: left shift.
+    pub const lsh: u8 = 0x60;
+    /// alu/alu64 operation code: right shift.
+    pub const rsh: u8 = 0x70;
+
+    /// alu/alu64 operation code: negation.
+    pub const neg: u8 = 0x80;
+    /// alu/alu64 operation code: modulus.
+    pub const mod: u8 = 0x90;
+
+    /// alu/alu64 operation code: exclusive or.
+    pub const xor: u8 = 0xa0;
+    /// alu/alu64 operation code: move.
+    pub const mov: u8 = 0xb0;
+    /// alu/alu64 operation code: sign extending right shift.
+    pub const arsh: u8 = 0xc0;
+    /// alu/alu64 operation code: endianness conversion.
+    pub const end: u8 = 0xd0;
+    /// alu/alu64 operation code: high or.
+    pub const hor: u8 = 0xf0;
 
     pub const Register = enum(u4) {
         /// Return Value
