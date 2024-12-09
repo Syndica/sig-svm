@@ -11,8 +11,11 @@ pub const ELFOSABI_NONE: u8 = 0;
 pub const EI_OSABI: u8 = 7;
 
 pub const SBPFVersion = enum {
-    V1,
-    V2,
+    v0,
+    v1,
+    v2,
+    v3,
+    reserved,
 };
 
 pub const Instruction = packed struct(u64) {
@@ -50,30 +53,30 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `stxdw [dst + off], src` /// `(dst + offset) as u64 = src`.
         st_dw_reg = stx | mem | dw,
 
-        /// bpf opcode: `ldxb dst, [src + off]` /// `dst = (src + off) as u8`.
-        ld_1b_reg = alu32_load | x | @"1b",
-        /// bpf opcode: `ldxh dst, [src + off]` /// `dst = (src + off) as u16`.
-        ld_2b_reg = alu32_load | x | @"2b",
-        /// bpf opcode: `ldxw dst, [src + off]` /// `dst = (src + off) as u32`.
-        ld_4b_reg = alu32_load | x | @"4b",
-        /// bpf opcode: `ldxdw dst, [src + off]` /// `dst = (src + off) as u64`.
-        ld_8b_reg = alu32_load | x | @"8b",
-        /// bpf opcode: `stb [dst + off], imm` /// `(dst + offset) as u8 = imm`.
-        st_1b_imm = alu64_store | k | @"1b",
-        /// bpf opcode: `sth [dst + off], imm` /// `(dst + offset) as u16 = imm`.
-        st_2b_imm = alu64_store | k | @"2b",
-        /// bpf opcode: `stw [dst + off], imm` /// `(dst + offset) as u32 = imm`.
-        st_4b_imm = alu64_store | k | @"4b",
-        /// bpf opcode: `stdw [dst + off], imm` /// `(dst + offset) as u64 = imm`.
-        st_8b_imm = alu64_store | k | @"8b",
-        /// bpf opcode: `stxb [dst + off], src` /// `(dst + offset) as u8 = src`.
-        st_1b_reg = alu64_store | x | @"1b",
-        /// bpf opcode: `stxh [dst + off], src` /// `(dst + offset) as u16 = src`.
-        st_2b_reg = alu64_store | x | @"2b",
-        /// bpf opcode: `stxw [dst + off], src` /// `(dst + offset) as u32 = src`.
-        st_4b_reg = alu64_store | x | @"4b",
-        /// bpf opcode: `stxdw [dst + off], src` /// `(dst + offset) as u64 = src`.
-        st_8b_reg = alu64_store | x | @"8b",
+        // /// bpf opcode: `ldxb dst, [src + off]` /// `dst = (src + off) as u8`.
+        // ld_1b_reg = alu32_load | x | @"1b",
+        // /// bpf opcode: `ldxh dst, [src + off]` /// `dst = (src + off) as u16`.
+        // ld_2b_reg = alu32_load | x | @"2b",
+        // /// bpf opcode: `ldxw dst, [src + off]` /// `dst = (src + off) as u32`.
+        // ld_4b_reg = alu32_load | x | @"4b",
+        // /// bpf opcode: `ldxdw dst, [src + off]` /// `dst = (src + off) as u64`.
+        // ld_8b_reg = alu32_load | x | @"8b",
+        // /// bpf opcode: `stb [dst + off], imm` /// `(dst + offset) as u8 = imm`.
+        // st_1b_imm = alu64_store | k | @"1b",
+        // /// bpf opcode: `sth [dst + off], imm` /// `(dst + offset) as u16 = imm`.
+        // st_2b_imm = alu64_store | k | @"2b",
+        // /// bpf opcode: `stw [dst + off], imm` /// `(dst + offset) as u32 = imm`.
+        // st_4b_imm = alu64_store | k | @"4b",
+        // /// bpf opcode: `stdw [dst + off], imm` /// `(dst + offset) as u64 = imm`.
+        // st_8b_imm = alu64_store | k | @"8b",
+        // /// bpf opcode: `stxb [dst + off], src` /// `(dst + offset) as u8 = src`.
+        // st_1b_reg = alu64_store | x | @"1b",
+        // /// bpf opcode: `stxh [dst + off], src` /// `(dst + offset) as u16 = src`.
+        // st_2b_reg = alu64_store | x | @"2b",
+        // /// bpf opcode: `stxw [dst + off], src` /// `(dst + offset) as u32 = src`.
+        // st_4b_reg = alu64_store | x | @"4b",
+        // /// bpf opcode: `stxdw [dst + off], src` /// `(dst + offset) as u64 = src`.
+        // st_8b_reg = alu64_store | x | @"8b",
 
         /// bpf opcode: `add32 dst, imm` /// `dst += imm`.
         add32_imm = alu32_load | k | add,
@@ -84,15 +87,15 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `sub32 dst, src` /// `dst -= src`.
         sub32_reg = alu32_load | x | sub,
 
-        // /// bpf opcode: `mul32 dst, imm` /// `dst *= imm`.
-        // mul32_imm = alu32_load | k | mul,
+        /// bpf opcode: `mul32 dst, imm` /// `dst *= imm`.
+        mul32_imm = alu32_load | k | mul,
 
         /// bpf opcode: `mul32 dst, src` /// `dst *= src`.
-        // mul32_reg = alu32_load | x | mul,
+        mul32_reg = alu32_load | x | mul,
         /// bpf opcode: `div32 dst, imm` /// `dst /= imm`.
-        // div32_imm = alu32_load | k | div,
+        div32_imm = alu32_load | k | div,
         /// bpf opcode: `div32 dst, src` /// `dst /= src`.
-        // div32_reg = alu32_load | x | div,
+        div32_reg = alu32_load | x | div,
 
         /// bpf opcode: `or32 dst, imm` /// `dst |= imm`.
         or32_imm = alu32_load | k | @"or",
@@ -111,13 +114,13 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `rsh32 dst, src` /// `dst >>= src`.
         rsh32_reg = alu32_load | x | rsh,
 
-        // /// bpf opcode: `neg32 dst` /// `dst = -dst`.
-        // neg32 = alu32_load | neg,
+        /// bpf opcode: `neg32 dst` /// `dst = -dst`.
+        neg32 = alu32_load | neg,
 
         /// bpf opcode: `mod32 dst, imm` /// `dst %= imm`.
-        // mod32_imm = alu32_load | k | mod,
+        mod32_imm = alu32_load | k | mod,
         /// bpf opcode: `mod32 dst, src` /// `dst %= src`.
-        // mod32_reg = alu32_load | x | mod,
+        mod32_reg = alu32_load | x | mod,
 
         /// bpf opcode: `xor32 dst, imm` /// `dst ^= imm`.
         xor32_imm = alu32_load | k | xor,
@@ -137,9 +140,9 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `lmul32 dst, src` /// `dst *= (dst * src) as u32`.
         lmul32_reg = pqr | x | lmul,
         /// bpf opcode: `uhmul32 dst, imm` /// `dst = (dst * imm) as u64`.
-        //  uhmul32_imm  =  pqr |  k |  uhmul,
+        uhmul32_imm = pqr | k | uhmul,
         /// bpf opcode: `uhmul32 dst, src` /// `dst = (dst * src) as u64`.
-        //  uhmul32_reg  =  pqr | x |  uhmul,
+        uhmul32_reg = pqr | x | uhmul,
         /// bpf opcode: `udiv32 dst, imm` /// `dst /= imm`.
         udiv32_imm = pqr | k | udiv,
         /// bpf opcode: `udiv32 dst, src` /// `dst /= src`.
@@ -149,9 +152,9 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `urem32 dst, src` /// `dst %= src`.
         urem32_reg = pqr | x | urem,
         /// bpf opcode: `shmul32 dst, imm` /// `dst = (dst * imm) as i64`.
-        //  shmul32_imm  =  pqr |  k |  shmul,
+        shmul32_imm = pqr | k | shmul,
         /// bpf opcode: `shmul32 dst, src` /// `dst = (dst * src) as i64`.
-        //  shmul32_reg  =  pqr | x |  shmul,
+        shmul32_reg = pqr | x | shmul,
         /// bpf opcode: `sdiv32 dst, imm` /// `dst /= imm`.
         sdiv32_imm = pqr | k | sdiv,
         /// bpf opcode: `sdiv32 dst, src` /// `dst /= src`.
@@ -175,15 +178,14 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `sub64 dst, src` /// `dst -= src`.
         sub64_reg = alu64_store | x | sub,
 
-        //
         /// bpf opcode: `mul64 dst, imm` /// `dst *= imm`.
-        // mul64_imm = alu64_store | k | mul,
+        mul64_imm = alu64_store | k | mul,
         /// bpf opcode: `mul64 dst, src` /// `dst *= src`.
-        // mul64_reg = alu64_store | x | mul,
+        mul64_reg = alu64_store | x | mul,
         /// bpf opcode: `div64 dst, imm` /// `dst /= imm`.
-        // div64_imm = alu64_store | k | div,
+        div64_imm = alu64_store | k | div,
         /// bpf opcode: `div64 dst, src` /// `dst /= src`.
-        // div64_reg = alu64_store | x | div,
+        div64_reg = alu64_store | x | div,
 
         /// bpf opcode: `or64 dst, imm` /// `dst |= imm`.
         or64_imm = alu64_store | k | @"or",
@@ -202,13 +204,13 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `rsh64 dst, src` /// `dst >>= src`.
         rsh64_reg = alu64_store | x | rsh,
 
-        // /// bpf opcode: `neg64 dst` /// `dst = -dst`.
-        // neg64 = alu64_store | neg,
+        /// bpf opcode: `neg64 dst` /// `dst = -dst`.
+        neg64 = alu64_store | neg,
 
-        // /// bpf opcode: `mod64 dst, imm` /// `dst %= imm`.
-        // mod64_imm = alu64_store | k | mod,
-        // /// bpf opcode: `mod64 dst, src` /// `dst %= src`.
-        // mod64_reg = alu64_store | x | mod,
+        /// bpf opcode: `mod64 dst, imm` /// `dst %= imm`.
+        mod64_imm = alu64_store | k | mod,
+        /// bpf opcode: `mod64 dst, src` /// `dst %= src`.
+        mod64_reg = alu64_store | x | mod,
 
         /// bpf opcode: `xor64 dst, imm` /// `dst ^= imm`.
         xor64_imm = alu64_store | k | xor,
@@ -306,13 +308,13 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: tail call.
         call_reg = jmp | x | call,
 
-        // /// bpf opcode: `exit` /// `return r0`. /// valid only until sbpfv3
-        // exit = jmp | exit,
+        /// bpf opcode: `exit` /// `return r0`. /// valid only until sbpfv3
+        exit = jmp | exit,
 
         /// bpf opcode: `return` /// `return r0`. /// valid only since sbpfv3
         @"return" = jmp | x | exit,
         /// bpf opcode: `syscall` /// `syscall imm`. /// valid only since sbpfv3
-        syscall = jmp | syscall,
+        // syscall = jmp | syscall,
         _,
 
         /// load from immediate
@@ -409,10 +411,10 @@ pub const Instruction = packed struct(u64) {
         /// alu/alu64 operation code: subtraction.
         const sub: u8 = 0x10;
 
-        // /// alu/alu64 operation code: multiplication. [deprecated]
-        // const mul: u8 = 0x20;
-        // /// alu/alu64 operation code: division. [deprecated]
-        // const div: u8 = 0x30;
+        /// alu/alu64 operation code: multiplication.
+        const mul: u8 = 0x20;
+        /// alu/alu64 operation code: division.
+        const div: u8 = 0x30;
 
         /// alu/alu64 operation code: or.
         const @"or": u8 = 0x40;
@@ -423,10 +425,10 @@ pub const Instruction = packed struct(u64) {
         /// alu/alu64 operation code: right shift.
         const rsh: u8 = 0x70;
 
-        // /// alu/alu64 operation code: negation. [deprecated]
-        // const neg: u8 = 0x80;
-        // /// alu/alu64 operation code: modulus. [deprecated]
-        // const mod: u8 = 0x90;
+        /// alu/alu64 operation code: negation.
+        const neg: u8 = 0x80;
+        /// alu/alu64 operation code: modulus.
+        const mod: u8 = 0x90;
 
         /// alu/alu64 operation code: exclusive or.
         const xor: u8 = 0xa0;

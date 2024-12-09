@@ -14,6 +14,7 @@ header: elf.Elf64_Ehdr,
 shdrs: std.ArrayListUnmanaged(elf.Elf64_Shdr) = .{},
 strtab: std.ArrayListUnmanaged(u8) = .{},
 entry_pc: u64,
+version: ebpf.SBPFVersion,
 
 pub fn parse(allocator: Allocator, input_file: std.fs.File) !Input {
     const header_buffer = try preadAllAlloc(allocator, input_file, 0, @sizeOf(elf.Elf64_Ehdr));
@@ -23,6 +24,7 @@ pub fn parse(allocator: Allocator, input_file: std.fs.File) !Input {
         .header = @as(*align(1) const elf.Elf64_Ehdr, @ptrCast(header_buffer)).*,
         .handle = input_file,
         .entry_pc = undefined,
+        .version = .reserved,
     };
 
     // section header offset
@@ -45,6 +47,15 @@ pub fn parse(allocator: Allocator, input_file: std.fs.File) !Input {
     const text_section = input.getShdrByName(".text").?;
     const offset = input.header.e_entry -| text_section.sh_addr;
     input.entry_pc = try std.math.divExact(u64, offset, 8);
+
+    // TODO: what value should be used for V1? this leads us vulnerable to
+    // having corrupt values pass.
+    const sbpf_version: ebpf.SBPFVersion = if (input.header.e_flags == ebpf.EF_SBPF_V2)
+        .v2
+    else
+        .v1;
+    if (sbpf_version != .v1) std.debug.panic("found sbpf version: {s}, support it!", .{@tagName(sbpf_version)});
+    input.version = sbpf_version;
 
     return input;
 }
@@ -78,15 +89,6 @@ pub fn validate(input: *Input) !void {
     if (header.e_type != .DYN) {
         return error.NotDynElf;
     }
-
-    // TODO: what value should be used for V1? this leads us vulnerable to
-    // having corrupt values pass.
-    const sbpf_version: ebpf.SBPFVersion = if (header.e_flags == ebpf.EF_SBPF_V2)
-        @panic("V2 sbpf not supported")
-    else
-        .V1;
-
-    _ = sbpf_version;
 
     // ensure there is only one ".text" section
     {
@@ -176,7 +178,8 @@ fn preadAllAlloc(
 /// Returns the string for a given index into the string table.
 fn getString(self: *const Input, off: u32) [:0]const u8 {
     assert(off < self.strtab.items.len);
-    return std.mem.sliceTo(@as([*:0]const u8, @ptrCast(self.strtab.items.ptr + off)), 0);
+    const ptr: [*:0]const u8 = @ptrCast(self.strtab.items.ptr + off);
+    return std.mem.sliceTo(ptr, 0);
 }
 
 fn getShdrIndexByName(self: *const Input, name: []const u8) ?u32 {
