@@ -27,7 +27,7 @@ pub const MemoryMap = union(enum) {
     }
 };
 
-const AccessType = enum {
+pub const AccessType = enum {
     load,
     store,
 };

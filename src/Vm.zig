@@ -158,8 +158,7 @@ fn step(vm: *Vm) !bool {
 
         .ld_h_reg => {
             const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.imm);
-            const loaded_value: u16 = @bitCast((try vm.memory_map.vmap(.load, vm_addr, @sizeOf(u16)))[0..2].*);
-            registers.set(inst.dst, loaded_value);
+            registers.set(inst.dst, try vm.memop(u16, .load, vm_addr));
         },
 
         .exit => {
@@ -179,4 +178,9 @@ fn step(vm: *Vm) !bool {
 
     vm.registers.set(.pc, next_pc);
     return true;
+}
+
+fn memop(vm: *Vm, T: type, access: memory.AccessType, vm_addr: u64) !T {
+    const slice = try vm.memory_map.vmap(access, vm_addr, @sizeOf(T));
+    return std.mem.readInt(T, slice[0..@sizeOf(T)], .little);
 }
