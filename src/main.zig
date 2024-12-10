@@ -38,8 +38,16 @@ pub fn main() !void {
 
     var executable = try Executable.fromAsm(allocator,
         \\entrypoint:
-        \\    mov32 r0, 16
-        \\    exit
+        \\  mov r0, 0x7
+        \\  add r1, 0xa
+        \\  lsh r1, 0x20
+        \\  rsh r1, 0x20
+        \\  jeq r1, 0x0, +4
+        \\  mov r0, 0x7
+        \\  lmul r0, 0x7
+        // \\  add r1, -1
+        // \\  jne r1, 0x0, -3
+        \\  exit
     );
     defer executable.deinit(allocator);
 

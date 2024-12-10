@@ -110,35 +110,6 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `arsh32 dst, src` /// `dst >>= src (arithmetic)`.
         arsh32_reg = alu32_load | x | arsh,
 
-        /// bpf opcode: `lmul32 dst, imm` /// `dst *= (dst * imm) as u32`.
-        lmul32_imm = pqr | k | lmul,
-        /// bpf opcode: `lmul32 dst, src` /// `dst *= (dst * src) as u32`.
-        lmul32_reg = pqr | x | lmul,
-        /// bpf opcode: `uhmul32 dst, imm` /// `dst = (dst * imm) as u64`.
-        uhmul32_imm = pqr | k | uhmul,
-        /// bpf opcode: `uhmul32 dst, src` /// `dst = (dst * src) as u64`.
-        uhmul32_reg = pqr | x | uhmul,
-        /// bpf opcode: `udiv32 dst, imm` /// `dst /= imm`.
-        udiv32_imm = pqr | k | udiv,
-        /// bpf opcode: `udiv32 dst, src` /// `dst /= src`.
-        udiv32_reg = pqr | x | udiv,
-        /// bpf opcode: `urem32 dst, imm` /// `dst %= imm`.
-        urem32_imm = pqr | k | urem,
-        /// bpf opcode: `urem32 dst, src` /// `dst %= src`.
-        urem32_reg = pqr | x | urem,
-        /// bpf opcode: `shmul32 dst, imm` /// `dst = (dst * imm) as i64`.
-        shmul32_imm = pqr | k | shmul,
-        /// bpf opcode: `shmul32 dst, src` /// `dst = (dst * src) as i64`.
-        shmul32_reg = pqr | x | shmul,
-        /// bpf opcode: `sdiv32 dst, imm` /// `dst /= imm`.
-        sdiv32_imm = pqr | k | sdiv,
-        /// bpf opcode: `sdiv32 dst, src` /// `dst /= src`.
-        sdiv32_reg = pqr | x | sdiv,
-        /// bpf opcode: `srem32 dst, imm` /// `dst %= imm`.
-        srem32_imm = pqr | k | srem,
-        /// bpf opcode: `srem32 dst, src` /// `dst %= src`.
-        srem32_reg = pqr | x | srem,
-
         /// bpf opcode: `le dst` /// `dst = htole<imm>(dst), with imm in {16, 32, 64}`.
         le = alu32_load | k | end,
         /// bpf opcode: `be dst` /// `dst = htobe<imm>(dst), with imm in {16, 32, 64}`.
@@ -201,35 +172,6 @@ pub const Instruction = packed struct(u64) {
         arsh64_reg = alu64_store | x | arsh,
         /// bpf opcode: `hor64 dst, imm` /// `dst |= imm << 32`.
         hor64_imm = alu64_store | k | hor,
-
-        /// bpf opcode: `lmul64 dst, imm` /// `dst = (dst * imm) as u64`.
-        lmul64_imm = pqr | b | k | lmul,
-        /// bpf opcode: `lmul64 dst, src` /// `dst = (dst * src) as u64`.
-        lmul64_reg = pqr | b | x | lmul,
-        /// bpf opcode: `uhmul64 dst, imm` /// `dst = (dst * imm) >> 64`.
-        uhmul64_imm = pqr | b | k | uhmul,
-        /// bpf opcode: `uhmul64 dst, src` /// `dst = (dst * src) >> 64`.
-        uhmul64_reg = pqr | b | x | uhmul,
-        /// bpf opcode: `udiv64 dst, imm` /// `dst /= imm`.
-        udiv64_imm = pqr | b | k | udiv,
-        /// bpf opcode: `udiv64 dst, src` /// `dst /= src`.
-        udiv64_reg = pqr | b | x | udiv,
-        /// bpf opcode: `urem64 dst, imm` /// `dst %= imm`.
-        urem64_imm = pqr | b | k | urem,
-        /// bpf opcode: `urem64 dst, src` /// `dst %= src`.
-        urem64_reg = pqr | b | x | urem,
-        /// bpf opcode: `shmul64 dst, imm` /// `dst = (dst * imm) >> 64`.
-        shmul64_imm = pqr | b | k | shmul,
-        /// bpf opcode: `shmul64 dst, src` /// `dst = (dst * src) >> 64`.
-        shmul64_reg = pqr | b | x | shmul,
-        /// bpf opcode: `sdiv64 dst, imm` /// `dst /= imm`.
-        sdiv64_imm = pqr | b | k | sdiv,
-        /// bpf opcode: `sdiv64 dst, src` /// `dst /= src`.
-        sdiv64_reg = pqr | b | x | sdiv,
-        /// bpf opcode: `srem64 dst, imm` /// `dst %= imm`.
-        srem64_imm = pqr | b | k | srem,
-        /// bpf opcode: `srem64 dst, src` /// `dst %= src`.
-        srem64_reg = pqr | b | x | srem,
 
         /// bpf opcode: `ja +off` /// `pc += off`.
         ja = jmp | 0x0,
@@ -313,8 +255,39 @@ pub const Instruction = packed struct(u64) {
 
     pub const map = std.StaticStringMap(Entry).initComptime(&.{
         // zig fmt: off
-        .{ "mov32", .{ .inst = .alu_binary, .opc = mov | alu32_load } },
-        .{ "exit",  .{ .inst = .no_operand, .opc = jmp | exit_code  } },
+        .{ "mov"  , .{ .inst = .alu_binary, .opc = mov | alu64_store } }, 
+        .{ "mov64", .{ .inst = .alu_binary, .opc = mov | alu64_store } },
+        .{ "mov32", .{ .inst = .alu_binary, .opc = mov | alu32_load  } },
+        
+        .{ "add"  , .{ .inst = .alu_binary, .opc = add | alu64_store } },
+        .{ "add64", .{ .inst = .alu_binary, .opc = add | alu64_store } },
+        .{ "add32", .{ .inst = .alu_binary, .opc = add | alu32_load  } },
+
+        .{ "mul"  , .{ .inst = .alu_binary, .opc = mul | alu64_store } },
+        .{ "mul64", .{ .inst = .alu_binary, .opc = mul | alu64_store } },
+        .{ "mul32", .{ .inst = .alu_binary, .opc = mul | alu32_load  } },
+
+        .{ "lsh"  , .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
+        .{ "lsh64", .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
+        .{ "lsh32", .{ .inst = .alu_binary, .opc = lsh | alu32_load  } },
+
+        .{ "rsh"  , .{ .inst = .alu_binary, .opc = rsh | alu64_store } },
+        .{ "rsh64", .{ .inst = .alu_binary, .opc = rsh | alu64_store } },
+        .{ "rsh32", .{ .inst = .alu_binary, .opc = rsh | alu32_load  } },
+
+        .{ "jeq"  , .{ .inst = .jump_conditional, .opc = jeq  |  jmp  } },
+        .{ "jgt"  , .{ .inst = .jump_conditional, .opc = jgt  |  jmp  } },
+        .{ "jge"  , .{ .inst = .jump_conditional, .opc = jge  |  jmp  } },
+        .{ "jlt"  , .{ .inst = .jump_conditional, .opc = jlt  |  jmp  } },
+        .{ "jle"  , .{ .inst = .jump_conditional, .opc = jle  |  jmp  } },
+        .{ "jset" , .{ .inst = .jump_conditional, .opc = jset |  jmp  } },
+        .{ "jne"  , .{ .inst = .jump_conditional, .opc = jne  |  jmp  } },
+        .{ "jsgt" , .{ .inst = .jump_conditional, .opc = jsgt |  jmp  } },
+        .{ "jsge" , .{ .inst = .jump_conditional, .opc = jsge |  jmp  } },
+        .{ "jslt" , .{ .inst = .jump_conditional, .opc = jslt |  jmp  } },
+        .{ "jsle" , .{ .inst = .jump_conditional, .opc = jsle |  jmp  } },
+        
+        .{ "exit" , .{ .inst = .no_operand, .opc = jmp | exit_code   } },
         // zig fmt: on
     });
 
@@ -385,21 +358,6 @@ pub const Instruction = packed struct(u64) {
     pub const jslt: u8 = 0xc0;
     ///  jmp operation code: jump if lower or equal (signed).
     pub const jsle: u8 = 0xd0;
-
-    /// pqr operation code: unsigned high multiplication.
-    pub const uhmul: u8 = 0x20;
-    /// pqr operation code: unsigned division quotient.
-    pub const udiv: u8 = 0x40;
-    /// pqr operation code: unsigned division remainder.
-    pub const urem: u8 = 0x60;
-    /// pqr operation code: low multiplication.
-    pub const lmul: u8 = 0x80;
-    /// pqr operation code: signed high multiplication.
-    pub const shmul: u8 = 0xa0;
-    /// pqr operation code: signed division quotient.
-    pub const sdiv: u8 = 0xc0;
-    /// pqr operation code: signed division remainder.
-    pub const srem: u8 = 0xe0;
 
     /// mode modifier:
     pub const imm = 0b0000000;

@@ -94,15 +94,19 @@ const Assembler = struct {
                     const instruction: ebpf.Instruction = switch (bind.inst) {
                         .alu_binary => inst: {
                             const is_immediate = operands[1] == .integer;
-                            if (is_immediate) {
-                                break :inst .{
-                                    .opcode = @enumFromInt(bind.opc | ebpf.Instruction.k),
-                                    .dst = operands[0].register,
-                                    .src = .r0, // unused
-                                    .off = 0,
-                                    .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
-                                };
-                            } else @panic("TODO");
+                            break :inst if (is_immediate) .{
+                                .opcode = @enumFromInt(bind.opc | ebpf.Instruction.k),
+                                .dst = operands[0].register,
+                                .src = .r0, // unused
+                                .off = 0,
+                                .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
+                            } else .{
+                                .opcode = @enumFromInt(bind.opc | ebpf.Instruction.x),
+                                .dst = operands[0].register,
+                                .src = operands[1].register,
+                                .off = 0,
+                                .imm = 0,
+                            };
                         },
                         .no_operand => .{
                             .opcode = @enumFromInt(bind.opc),
@@ -111,6 +115,22 @@ const Assembler = struct {
                             .src = .r0,
                             .off = 0,
                             .imm = 0,
+                        },
+                        .jump_conditional => inst: {
+                            const is_immediate = operands[1] == .integer;
+                            const is_label = operands[2] == .label;
+
+                            if (is_label) {
+                                @panic("TODO: label jump");
+                            } else {
+                                break :inst if (is_immediate) .{
+                                    .opcode = @enumFromInt(bind.opc | ebpf.Instruction.k),
+                                    .dst = operands[0].register,
+                                    .src = .r0,
+                                    .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
+                                    .off = @intCast(operands[2].integer),
+                                } else @panic("TODO: non-immediate non-label jump");
+                            }
                         },
                         else => std.debug.panic("TODO:  {s}", .{@tagName(bind.inst)}),
                     };
@@ -156,12 +176,9 @@ const Assembler = struct {
                     continue;
                 }
 
-                if (std.fmt.parseInt(i64, op, 10)) |int| {
+                if (std.fmt.parseInt(i64, op, 0)) |int| {
                     try operands.append(allocator, .{ .integer = int });
-                    continue;
-                } else |_| {}
-
-                std.debug.panic("unhandled operand: {s}", .{op});
+                } else |err| std.debug.panic("err: {s}", .{@errorName(err)});
             }
 
             try statements.append(allocator, .{ .instruction = .{
