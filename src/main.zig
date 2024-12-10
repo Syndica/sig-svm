@@ -45,7 +45,9 @@ pub fn main() !void {
 
     var vm = try Vm.init(&executable, allocator);
     defer vm.deinit();
-    try vm.run();
+    const result = try vm.run();
+
+    std.debug.print("result: {}\n", .{result});
 }
 
 fn fail(comptime fmt: []const u8, args: anytype) noreturn {

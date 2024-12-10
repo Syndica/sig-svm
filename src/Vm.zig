@@ -26,10 +26,9 @@ pub fn deinit(vm: *Vm) void {
     _ = vm;
 }
 
-pub fn run(vm: *Vm) !void {
+pub fn run(vm: *Vm) !u64 {
     while (try vm.step()) {}
-
-    std.debug.print("r0 value: {}\n", .{vm.registers.get(.r0)});
+    return vm.registers.get(.r0);
 }
 
 fn step(vm: *Vm) !bool {

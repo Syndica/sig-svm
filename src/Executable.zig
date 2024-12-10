@@ -134,8 +134,6 @@ const Assembler = struct {
 
             const trimmed_line = std.mem.trim(u8, line, " ");
 
-            std.debug.print("line: {s}\n", .{trimmed_line});
-
             // is it a label? "ident:"
             if (std.mem.indexOfScalar(u8, trimmed_line, ':')) |index| {
                 const ident = trimmed_line[0..index];
