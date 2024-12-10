@@ -153,6 +153,13 @@ const Assembler = struct {
                             .off = 0,
                             .imm = @truncate(@as(u64, @bitCast(operands[1].integer))),
                         },
+                        .load_reg => .{
+                            .opcode = @enumFromInt(bind.opc),
+                            .dst = operands[0].register,
+                            .src = operands[1].memory.base,
+                            .off = @intCast(operands[1].memory.offset),
+                            .imm = 0,
+                        },
                         else => std.debug.panic("TODO:  {s}", .{@tagName(bind.inst)}),
                     };
 
@@ -202,14 +209,39 @@ const Assembler = struct {
             defer operands.deinit(allocator);
 
             // what's the first mnemonic of the instruction?
-            var iter = std.mem.tokenizeAny(u8, trimmed_line, " ,");
+            var iter = std.mem.tokenizeAny(u8, trimmed_line, &.{ ' ', ',' });
             const name = iter.next() orelse @panic("no mnem");
 
             while (iter.next()) |op| {
+                // register operand
                 if (std.mem.startsWith(u8, op, "r")) {
                     const reg = std.meta.stringToEnum(ebpf.Instruction.Register, op) orelse
                         @panic("unknown register");
                     try operands.append(allocator, .{ .register = reg });
+                    continue;
+                }
+
+                // address operand
+                if (std.mem.startsWith(u8, op, "[")) {
+                    const left_bracket = std.mem.indexOfScalar(u8, op, '[').?;
+                    const right_bracket = std.mem.indexOfScalar(u8, op, ']') orelse
+                        @panic("no right bracket");
+                    if (left_bracket == op.len) @panic("no right bracket");
+
+                    const inner = op[left_bracket + 1 .. right_bracket];
+
+                    // does it have a + or -
+                    // this can appear in [r1+10] for example
+                    const offset = std.mem.indexOf(u8, inner, "+-");
+                    if (offset != null) {
+                        @panic("TODO");
+                    }
+
+                    // otherwise it's just an address register argument
+                    const reg = std.meta.stringToEnum(ebpf.Instruction.Register, inner) orelse
+                        @panic("unknown register");
+
+                    try operands.append(allocator, .{ .memory = .{ .base = reg, .offset = 0 } });
                     continue;
                 }
 

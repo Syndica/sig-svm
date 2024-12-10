@@ -3,7 +3,7 @@ const ebpf = @import("ebpf.zig");
 
 pub const PROGRAM_START: u64 = 0x100000000;
 pub const STACK_START: u64 = 0x200000000;
-pub const HEAD_START: u64 = 0x300000000;
+pub const HEAP_START: u64 = 0x300000000;
 pub const INPUT_START: u64 = 0x400000000;
 const VIRTUAL_ADDRESS_BITS = 32;
 
@@ -37,14 +37,14 @@ const MemoryState = enum {
     writeable,
 };
 
-const Region = struct {
+pub const Region = struct {
     slice: []u8,
     vm_addr_start: u64,
     vm_addr_end: u64,
     state: MemoryState,
 
     // TODO: use the `state` to ensure `slice` is immutable for readonly regions
-    fn init(slice: []u8, vm_addr: u64, state: MemoryState) Region {
+    pub fn init(slice: []u8, vm_addr: u64, state: MemoryState) Region {
         const vm_addr_end = vm_addr +| slice.len;
 
         return .{

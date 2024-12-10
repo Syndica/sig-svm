@@ -13,14 +13,20 @@ registers: std.EnumArray(ebpf.Instruction.Register, u64),
 memory_map: MemoryMap,
 depth: u64,
 
-pub fn init(executable: *const Executable, allocator: std.mem.Allocator) !Vm {
+pub fn init(
+    executable: *const Executable,
+    memory_map: MemoryMap,
+    allocator: std.mem.Allocator,
+) !Vm {
     var vm: Vm = .{
         .executable = executable,
         .allocator = allocator,
         .registers = std.EnumArray(ebpf.Instruction.Register, u64).initFill(0),
-        .memory_map = undefined,
+        .memory_map = memory_map,
         .depth = 0,
     };
+
+    vm.registers.set(.r1, memory.INPUT_START);
     vm.registers.set(.pc, executable.entry_pc);
 
     return vm;
@@ -148,6 +154,12 @@ fn step(vm: *Vm) !bool {
             if (registers.get(inst.dst) == inst.imm) {
                 next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
             }
+        },
+
+        .ld_h_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.imm);
+            const loaded_value: u16 = @bitCast((try vm.memory_map.vmap(.load, vm_addr, @sizeOf(u16)))[0..2].*);
+            registers.set(inst.dst, loaded_value);
         },
 
         .exit => {
