@@ -13,24 +13,24 @@ pub fn main() !void {
     else
         std.heap.c_allocator;
 
-    var input_path: ?[]const u8 = null;
+    // var input_path: ?[]const u8 = null;
 
-    var args = try std.process.argsWithAllocator(allocator);
-    _ = args.next();
-    while (args.next()) |arg| {
-        if (input_path) |file| {
-            fail("input file already given: {s}", .{file});
-        } else {
-            input_path = arg;
-        }
-    }
+    // var args = try std.process.argsWithAllocator(allocator);
+    // _ = args.next();
+    // while (args.next()) |arg| {
+    //     if (input_path) |file| {
+    //         fail("input file already given: {s}", .{file});
+    //     } else {
+    //         input_path = arg;
+    //     }
+    // }
 
-    if (input_path == null) {
-        fail("no input file provided", .{});
-    }
+    // if (input_path == null) {
+    //     fail("no input file provided", .{});
+    // }
 
-    const input_file = try std.fs.cwd().openFile(input_path.?, .{});
-    defer input_file.close();
+    // const input_file = try std.fs.cwd().openFile(input_path.?, .{});
+    // defer input_file.close();
 
     // var elf = try Elf.parse(allocator, input_file);
     // defer elf.deinit(allocator);
@@ -38,15 +38,7 @@ pub fn main() !void {
 
     var executable = try Executable.fromAsm(allocator,
         \\entrypoint:
-        \\  mov r0, 0x7
-        \\  add r1, 0xa
-        \\  lsh r1, 0x20
-        \\  rsh r1, 0x20
-        \\  jeq r1, 0x0, +4
-        \\  mov r0, 0x7
-        \\  lmul r0, 0x7
-        // \\  add r1, -1
-        // \\  jne r1, 0x0, -3
+        \\  lddw r0, 0x1122334455667788
         \\  exit
     );
     defer executable.deinit(allocator);
@@ -55,7 +47,7 @@ pub fn main() !void {
     defer vm.deinit();
     const result = try vm.run();
 
-    std.debug.print("result: {}\n", .{result});
+    std.debug.print("result: {x}\n", .{result});
 }
 
 fn fail(comptime fmt: []const u8, args: anytype) noreturn {

@@ -35,7 +35,9 @@ fn step(vm: *Vm) !bool {
     const registers = &vm.registers;
     const pc = registers.get(.pc);
     var next_pc: u64 = pc + 1;
-    const inst = vm.executable.instructions[pc];
+
+    const instructions = vm.executable.instructions;
+    const inst = instructions[pc];
 
     switch (inst.opcode) {
         .add64_reg => registers.set(inst.dst, registers.get(inst.dst) +% registers.get(inst.src)),
@@ -45,13 +47,21 @@ fn step(vm: *Vm) !bool {
         ),
         .add32_reg => registers.set(
             inst.dst,
-            @as(u32, @intCast(registers.get(inst.dst))) +% @as(u32, @intCast(registers.get(inst.src))),
+            @as(u32, @truncate(registers.get(inst.dst))) +% @as(u32, @truncate(registers.get(inst.src))),
         ),
         .add32_imm => registers.set(
             inst.dst,
-            @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @intCast(registers.get(inst.dst))) +% inst.imm)))),
+            @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))) +% inst.imm)))),
         ),
 
+        .mul64_reg => registers.set(
+            inst.dst,
+            registers.get(inst.dst) *% registers.get(inst.src),
+        ),
+        .mul64_imm => registers.set(
+            inst.dst,
+            registers.get(inst.dst) *% inst.imm,
+        ),
         .mul32_reg => registers.set(
             inst.dst,
             @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))))) *%
@@ -65,13 +75,14 @@ fn step(vm: *Vm) !bool {
 
         .mov64_reg => registers.set(inst.dst, registers.get(inst.src)),
         .mov64_imm => registers.set(inst.dst, inst.imm),
-        .mov32_reg => registers.set(inst.dst, @as(u32, @intCast(registers.get(inst.src)))),
-        .mov32_imm => registers.set(inst.dst, @as(u32, @intCast(inst.imm))),
+        .mov32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.src)))),
+        .mov32_imm => registers.set(inst.dst, @as(u32, @truncate(inst.imm))),
 
         .lsh64_imm => registers.set(inst.dst, std.math.rotl(u64, registers.get(inst.dst), inst.imm)),
 
         .rsh64_imm => registers.set(inst.dst, std.math.rotr(u64, registers.get(inst.dst), inst.imm)),
 
+        .ja => next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off),
         .jeq_imm => {
             if (registers.get(inst.dst) == inst.imm) {
                 next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
@@ -84,6 +95,12 @@ fn step(vm: *Vm) !bool {
             }
             @panic("TODO: return from function");
         },
+        .ld_dw_imm => {
+            const value: u64 = (@as(u64, instructions[next_pc].imm) << 32) | inst.imm;
+            registers.set(inst.dst, value);
+            next_pc += 1;
+        },
+
         else => std.debug.panic("TODO: step {}", .{inst}),
     }
 

@@ -127,16 +127,46 @@ const Assembler = struct {
                                     .opcode = @enumFromInt(bind.opc | ebpf.Instruction.k),
                                     .dst = operands[0].register,
                                     .src = .r0,
-                                    .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
                                     .off = @intCast(operands[2].integer),
+                                    .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
                                 } else @panic("TODO: non-immediate non-label jump");
                             }
+                        },
+                        .jump_unconditional => .{
+                            .opcode = @enumFromInt(bind.opc),
+                            .dst = .r0,
+                            .src = .r0,
+                            .off = @intCast(operands[0].integer),
+                            .imm = 0,
+                        },
+                        .load_dw_imm => .{
+                            .opcode = .ld_dw_imm,
+                            .dst = operands[0].register,
+                            .src = .r0,
+                            .off = 0,
+                            .imm = @truncate(@as(u64, @bitCast(operands[1].integer))),
                         },
                         else => std.debug.panic("TODO:  {s}", .{@tagName(bind.inst)}),
                     };
 
                     try instructions.append(allocator, instruction);
                     inst_ptr += 1;
+
+                    if (bind.inst == .load_dw_imm) {
+                        switch (operands[1]) {
+                            .integer => |int| {
+                                try instructions.append(allocator, .{
+                                    .opcode = @enumFromInt(0),
+                                    .dst = .r0,
+                                    .src = .r0,
+                                    .off = 0,
+                                    .imm = @truncate(@as(u64, @bitCast(int)) >> 32),
+                                });
+                                inst_ptr += 1;
+                            },
+                            else => {},
+                        }
+                    }
                 },
             }
         }

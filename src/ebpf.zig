@@ -275,6 +275,8 @@ pub const Instruction = packed struct(u64) {
         .{ "rsh64", .{ .inst = .alu_binary, .opc = rsh | alu64_store } },
         .{ "rsh32", .{ .inst = .alu_binary, .opc = rsh | alu32_load  } },
 
+        .{ "ja"   , .{ .inst = .jump_unconditional, .opc = ja | jmp } },
+
         .{ "jeq"  , .{ .inst = .jump_conditional, .opc = jeq  |  jmp  } },
         .{ "jgt"  , .{ .inst = .jump_conditional, .opc = jgt  |  jmp  } },
         .{ "jge"  , .{ .inst = .jump_conditional, .opc = jge  |  jmp  } },
@@ -287,7 +289,9 @@ pub const Instruction = packed struct(u64) {
         .{ "jslt" , .{ .inst = .jump_conditional, .opc = jslt |  jmp  } },
         .{ "jsle" , .{ .inst = .jump_conditional, .opc = jsle |  jmp  } },
         
-        .{ "exit" , .{ .inst = .no_operand, .opc = jmp | exit_code   } },
+        .{ "exit" , .{ .inst = .no_operand,       .opc = jmp | exit_code } },
+        .{ "lddw" , .{ .inst = .load_dw_imm,      .opc = ld  | imm | dw  } },
+
         // zig fmt: on
     });
 
@@ -330,6 +334,8 @@ pub const Instruction = packed struct(u64) {
     /// size modifier: 8 bytes.
     pub const @"8b": u8 = 0x90;
 
+    /// jmp operation code: jump always
+    pub const ja: u8 = 0x00;
     ///  jmp operation code: jump if equal.
     pub const jeq: u8 = 0x10;
     ///  jmp operation code: jump if greater than.
