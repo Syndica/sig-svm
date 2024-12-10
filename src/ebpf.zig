@@ -267,6 +267,10 @@ pub const Instruction = packed struct(u64) {
         .{ "mul64", .{ .inst = .alu_binary, .opc = mul | alu64_store } },
         .{ "mul32", .{ .inst = .alu_binary, .opc = mul | alu32_load  } },
 
+        .{ "div"  , .{ .inst = .alu_binary, .opc = div | alu64_store } },
+        .{ "div64", .{ .inst = .alu_binary, .opc = div | alu64_store } },
+        .{ "div32", .{ .inst = .alu_binary, .opc = div | alu32_load  } },
+
         .{ "lsh"  , .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
         .{ "lsh64", .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
         .{ "lsh32", .{ .inst = .alu_binary, .opc = lsh | alu32_load  } },

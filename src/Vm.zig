@@ -78,6 +78,17 @@ fn step(vm: *Vm) !bool {
         .mov32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.src)))),
         .mov32_imm => registers.set(inst.dst, @as(u32, @truncate(inst.imm))),
 
+        .div64_reg => registers.set(inst.dst, try std.math.divTrunc(u64, registers.get(inst.dst), registers.get(inst.src))),
+        .div64_imm => registers.set(inst.dst, try std.math.divTrunc(u64, registers.get(inst.dst), inst.imm)),
+        .div32_reg => registers.set(
+            inst.dst,
+            try std.math.divTrunc(u32, @truncate(registers.get(inst.dst)), @truncate(registers.get(inst.src))),
+        ),
+        .div32_imm => registers.set(
+            inst.dst,
+            try std.math.divTrunc(u32, @truncate(registers.get(inst.dst)), inst.imm),
+        ),
+
         .lsh64_imm => registers.set(inst.dst, std.math.rotl(u64, registers.get(inst.dst), inst.imm)),
 
         .rsh64_imm => registers.set(inst.dst, std.math.rotr(u64, registers.get(inst.dst), inst.imm)),

@@ -124,61 +124,61 @@ test "lddw" {
 }
 
 test "div" {
-    // try testAsm(
-    //     \\entrypoint:
-    //     \\  mov r0, 12
-    //     \\  lddw r1, 0x100000004
-    //     \\  div32 r0, r1
-    //     \\  exit
-    // , 0x3);
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 12
+        \\  lddw r1, 0x100000004
+        \\  div32 r0, r1
+        \\  exit
+    , 0x3);
 
-    // try testAsm(
-    //     \\entrypoint:
-    //     \\  lddw r0, 0x10000000c
-    //     \\  div32 r0, 4
-    //     \\  exit
-    // , 0x3);
+    try testAsm(
+        \\entrypoint:
+        \\  lddw r0, 0x10000000c
+        \\  div32 r0, 4
+        \\  exit
+    , 0x3);
 
-    // try testAsm(
-    //     \\entrypoint:
-    //     \\  lddw r0, 0x10000000c
-    //     \\  mov r1, 4
-    //     \\  div32 r0, r1
-    //     \\  exit
-    // , 0x3);
+    try testAsm(
+        \\entrypoint:
+        \\  lddw r0, 0x10000000c
+        \\  mov r1, 4
+        \\  div32 r0, r1
+        \\  exit
+    , 0x3);
 
-    // try testAsm(
-    //     \\entrypoint:
-    //     \\  mov r0, 0xc
-    //     \\  lsh r0, 32
-    //     \\  div r0, 4
-    //     \\  exit
-    // , 0x300000000);
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0xc
+        \\  lsh r0, 32
+        \\  div r0, 4
+        \\  exit
+    , 0x300000000);
 
-    // try testAsm(
-    //     \\entrypoint:
-    //     \\  mov r0, 0xc
-    //     \\  lsh r0, 32
-    //     \\  mov r1, 4
-    //     \\  div r0, r1
-    //     \\  exit
-    // , 0x300000000);
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0xc
+        \\  lsh r0, 32
+        \\  mov r1, 4
+        \\  div r0, r1
+        \\  exit
+    , 0x300000000);
 
-    // try testAsm(
-    //     \\entrypoint:
-    //     \\  mov32 r0, 1
-    //     \\  mov32 r1, 0
-    //     \\  div r0, r1
-    //     \\  exit
-    // , error.DivideByZero);
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  div r0, r1
+        \\  exit
+    , error.DivisionByZero);
 
-    // try testAsm(
-    //     \\entrypoint:
-    //     \\  mov32 r0, 1
-    //     \\  mov32 r1, 0
-    //     \\  div32 r0, r1
-    //     \\  exit
-    // , error.DivideByZero);
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  div32 r0, r1
+        \\  exit
+    , error.DivisionByZero);
 }
 
 test "alu" {
