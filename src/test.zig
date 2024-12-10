@@ -181,9 +181,37 @@ test "div" {
     , error.DivisionByZero);
 }
 
-test "alu" {
-    if (true) return error.SkipZigTest;
+test "neg" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 2
+        \\  neg32 r0
+        \\  exit
+    , 0xFFFFFFFE);
 
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 2
+        \\  neg r0
+        \\  exit
+    , 0xFFFFFFFFFFFFFFFE);
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 3
+        \\  sub32 r0, 1
+        \\  exit
+    , 2);
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 3
+        \\  sub r0, 1
+        \\  exit
+    , 2);
+}
+
+test "alu" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -195,17 +223,46 @@ test "alu" {
         \\  mov32 r6, 6
         \\  mov32 r7, 7
         \\  mov32 r8, 8
-        \\  mov32 r9, 9
-        \\  sub32 r0, 13
-        \\  sub32 r0, r1
-        \\  add32 r0, 23
-        \\  add32 r0, r7
-        \\  mul32 r0, 7
-        \\  mul32 r0, r3
-        \\  div32 r0, 2
-        \\  div32 r0, r4
+        \\  or32 r0, r5
+        \\  or32 r0, 0xa0
+        \\  and32 r0, 0xa3
+        \\  mov32 r9, 0x91
+        \\  and32 r0, r9
+        \\  lsh32 r0, 22
+        \\  lsh32 r0, r8
+        \\  rsh32 r0, 19
+        \\  rsh32 r0, r7
+        \\  xor32 r0, 0x03
+        \\  xor32 r0, r2
         \\  exit
-    , 110);
+    , 0x11);
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0
+        \\  mov r1, 1
+        \\  mov r2, 2
+        \\  mov r3, 3
+        \\  mov r4, 4
+        \\  mov r5, 5
+        \\  mov r6, 6
+        \\  mov r7, 7
+        \\  mov r8, 8
+        \\  or r0, r5
+        \\  or r0, 0xa0
+        \\  and r0, 0xa3
+        \\  mov r9, 0x91
+        \\  and r0, r9
+        \\  lsh r0, 32
+        \\  lsh r0, 22
+        \\  lsh r0, r8
+        \\  rsh r0, 32
+        \\  rsh r0, 19
+        \\  rsh r0, r7
+        \\  xor r0, 0x03
+        \\  xor r0, r2
+        \\  exit
+    , 0x11);
 }
 
 fn testAsm(source: []const u8, expected: anytype) !void {

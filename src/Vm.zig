@@ -54,14 +54,8 @@ fn step(vm: *Vm) !bool {
             @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))) +% inst.imm)))),
         ),
 
-        .mul64_reg => registers.set(
-            inst.dst,
-            registers.get(inst.dst) *% registers.get(inst.src),
-        ),
-        .mul64_imm => registers.set(
-            inst.dst,
-            registers.get(inst.dst) *% inst.imm,
-        ),
+        .mul64_reg => registers.set(inst.dst, registers.get(inst.dst) *% registers.get(inst.src)),
+        .mul64_imm => registers.set(inst.dst, registers.get(inst.dst) *% inst.imm),
         .mul32_reg => registers.set(
             inst.dst,
             @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))))) *%
@@ -73,12 +67,17 @@ fn step(vm: *Vm) !bool {
                 @as(i32, @bitCast(inst.imm)))),
         ),
 
-        .mov64_reg => registers.set(inst.dst, registers.get(inst.src)),
-        .mov64_imm => registers.set(inst.dst, inst.imm),
-        .mov32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.src)))),
-        .mov32_imm => registers.set(inst.dst, @as(u32, @truncate(inst.imm))),
+        .sub64_reg => registers.set(inst.dst, registers.get(inst.dst) -% registers.get(inst.src)),
+        .sub64_imm => registers.set(inst.dst, registers.get(inst.dst) -% inst.imm),
+        .sub32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) -%
+            @as(u32, @truncate(registers.get(inst.src)))),
+        .sub32_imm => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) -% inst.imm),
 
-        .div64_reg => registers.set(inst.dst, try std.math.divTrunc(u64, registers.get(inst.dst), registers.get(inst.src))),
+        .div64_reg => registers.set(inst.dst, try std.math.divTrunc(
+            u64,
+            registers.get(inst.dst),
+            registers.get(inst.src),
+        )),
         .div64_imm => registers.set(inst.dst, try std.math.divTrunc(u64, registers.get(inst.dst), inst.imm)),
         .div32_reg => registers.set(
             inst.dst,
@@ -89,9 +88,56 @@ fn step(vm: *Vm) !bool {
             try std.math.divTrunc(u32, @truncate(registers.get(inst.dst)), inst.imm),
         ),
 
-        .lsh64_imm => registers.set(inst.dst, std.math.rotl(u64, registers.get(inst.dst), inst.imm)),
+        .xor64_reg => registers.set(inst.dst, registers.get(inst.dst) ^ registers.get(inst.src)),
+        .xor64_imm => registers.set(inst.dst, registers.get(inst.dst) ^ inst.imm),
+        .xor32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) ^
+            @as(u32, @truncate(registers.get(inst.src)))),
+        .xor32_imm => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) ^
+            inst.imm),
 
-        .rsh64_imm => registers.set(inst.dst, std.math.rotr(u64, registers.get(inst.dst), inst.imm)),
+        .or64_reg => registers.set(inst.dst, registers.get(inst.dst) | registers.get(inst.src)),
+        .or64_imm => registers.set(inst.dst, registers.get(inst.dst) | inst.imm),
+        .or32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) |
+            @as(u32, @truncate(registers.get(inst.src)))),
+        .or32_imm => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) |
+            inst.imm),
+
+        .and64_reg => registers.set(inst.dst, registers.get(inst.dst) & registers.get(inst.src)),
+        .and64_imm => registers.set(inst.dst, registers.get(inst.dst) & inst.imm),
+        .and32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) &
+            @as(u32, @truncate(registers.get(inst.src)))),
+        .and32_imm => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) &
+            inst.imm),
+
+        .mov64_reg => registers.set(inst.dst, registers.get(inst.src)),
+        .mov64_imm => registers.set(inst.dst, inst.imm),
+        .mov32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.src)))),
+        .mov32_imm => registers.set(inst.dst, @as(u32, @truncate(inst.imm))),
+
+        .neg32 => registers.set(inst.dst, @as(u32, @truncate(@as(u64, @bitCast(@as(i64, -@as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))))))))))),
+        .neg64 => registers.set(inst.dst, @bitCast(-@as(i64, @bitCast(registers.get(inst.dst))))),
+
+        .lsh64_reg => registers.set(inst.dst, registers.get(inst.dst) << @truncate(registers.get(inst.src))),
+        .lsh64_imm => registers.set(inst.dst, registers.get(inst.dst) << @truncate(inst.imm)),
+        .lsh32_reg => registers.set(
+            inst.dst,
+            @as(u32, @truncate(registers.get(inst.dst))) << @truncate(registers.get(inst.src)),
+        ),
+        .lsh32_imm => registers.set(
+            inst.dst,
+            @as(u32, @truncate(registers.get(inst.dst))) << @truncate(inst.imm),
+        ),
+
+        .rsh64_reg => registers.set(inst.dst, registers.get(inst.dst) >> @truncate(registers.get(inst.src))),
+        .rsh64_imm => registers.set(inst.dst, registers.get(inst.dst) >> @truncate(inst.imm)),
+        .rsh32_reg => registers.set(
+            inst.dst,
+            @as(u32, @truncate(registers.get(inst.dst))) >> @truncate(registers.get(inst.src)),
+        ),
+        .rsh32_imm => registers.set(
+            inst.dst,
+            @as(u32, @truncate(registers.get(inst.dst))) >> @truncate(inst.imm),
+        ),
 
         .ja => next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off),
         .jeq_imm => {

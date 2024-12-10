@@ -108,6 +108,13 @@ const Assembler = struct {
                                 .imm = 0,
                             };
                         },
+                        .alu_unary => .{
+                            .opcode = @enumFromInt(bind.opc),
+                            .dst = operands[0].register,
+                            .src = .r0,
+                            .off = 0,
+                            .imm = 0,
+                        },
                         .no_operand => .{
                             .opcode = @enumFromInt(bind.opc),
                             // all these fields are unused

@@ -267,9 +267,25 @@ pub const Instruction = packed struct(u64) {
         .{ "mul64", .{ .inst = .alu_binary, .opc = mul | alu64_store } },
         .{ "mul32", .{ .inst = .alu_binary, .opc = mul | alu32_load  } },
 
+        .{ "sub"  , .{ .inst = .alu_binary, .opc = sub | alu64_store } },
+        .{ "sub64", .{ .inst = .alu_binary, .opc = sub | alu64_store } },
+        .{ "sub32", .{ .inst = .alu_binary, .opc = sub | alu32_load  } },
+
         .{ "div"  , .{ .inst = .alu_binary, .opc = div | alu64_store } },
         .{ "div64", .{ .inst = .alu_binary, .opc = div | alu64_store } },
         .{ "div32", .{ .inst = .alu_binary, .opc = div | alu32_load  } },
+        
+        .{ "xor"  , .{ .inst = .alu_binary, .opc = xor | alu64_store } },
+        .{ "xor64", .{ .inst = .alu_binary, .opc = xor | alu64_store } },
+        .{ "xor32", .{ .inst = .alu_binary, .opc = xor | alu32_load  } },
+
+        .{ "or"  , .{ .inst = .alu_binary, .opc = @"or" | alu64_store } },
+        .{ "or64", .{ .inst = .alu_binary, .opc = @"or" | alu64_store } },
+        .{ "or32", .{ .inst = .alu_binary, .opc = @"or" | alu32_load  } },
+
+        .{ "and"  , .{ .inst = .alu_binary, .opc = @"and" | alu64_store } },
+        .{ "and64", .{ .inst = .alu_binary, .opc = @"and" | alu64_store } },
+        .{ "and32", .{ .inst = .alu_binary, .opc = @"and" | alu32_load  } },
 
         .{ "lsh"  , .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
         .{ "lsh64", .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
@@ -278,6 +294,10 @@ pub const Instruction = packed struct(u64) {
         .{ "rsh"  , .{ .inst = .alu_binary, .opc = rsh | alu64_store } },
         .{ "rsh64", .{ .inst = .alu_binary, .opc = rsh | alu64_store } },
         .{ "rsh32", .{ .inst = .alu_binary, .opc = rsh | alu32_load  } },
+        
+        .{ "neg"  , .{ .inst = .alu_unary,  .opc = neg | alu64_store } },
+        .{ "neg64", .{ .inst = .alu_unary,  .opc = neg | alu64_store } },
+        .{ "neg32", .{ .inst = .alu_unary,  .opc = neg | alu32_load  } },
 
         .{ "ja"   , .{ .inst = .jump_unconditional, .opc = ja | jmp } },
 
