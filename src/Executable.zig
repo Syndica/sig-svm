@@ -228,20 +228,23 @@ const Assembler = struct {
                         @panic("no right bracket");
                     if (left_bracket == op.len) @panic("no right bracket");
 
-                    const inner = op[left_bracket + 1 .. right_bracket];
+                    var base = op[left_bracket + 1 .. right_bracket];
+                    var offset: i64 = 0;
 
                     // does it have a + or -
                     // this can appear in [r1+10] for example
-                    const offset = std.mem.indexOf(u8, inner, "+-");
-                    if (offset != null) {
-                        @panic("TODO");
+                    const maybe_symbol_offset = std.mem.indexOfAny(u8, base, "+-");
+                    if (maybe_symbol_offset) |symbol_offset| {
+                        const symbol = base[symbol_offset..];
+                        base = base[0..symbol_offset];
+                        offset = try std.fmt.parseInt(i64, symbol, 0);
                     }
 
                     // otherwise it's just an address register argument
-                    const reg = std.meta.stringToEnum(ebpf.Instruction.Register, inner) orelse
+                    const reg = std.meta.stringToEnum(ebpf.Instruction.Register, base) orelse
                         @panic("unknown register");
 
-                    try operands.append(allocator, .{ .memory = .{ .base = reg, .offset = 0 } });
+                    try operands.append(allocator, .{ .memory = .{ .base = reg, .offset = offset } });
                     continue;
                 }
 

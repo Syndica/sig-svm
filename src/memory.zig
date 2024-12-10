@@ -93,7 +93,7 @@ pub const Region = struct {
         if (vm_addr < reg.vm_addr_start) return error.InvalidVirtualAddress;
 
         const begin_offset = vm_addr -| reg.vm_addr_start;
-        if (len <= reg.len) {
+        if (begin_offset + len <= reg.len) {
             const host_addr = reg.host_addr + begin_offset;
             return @as(access.Many(), @ptrFromInt(host_addr))[0..len];
         }

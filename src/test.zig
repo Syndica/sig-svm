@@ -298,6 +298,59 @@ test "shift" {
     , 0x1);
 }
 
+test "load" {
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxb r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0x11, 0xcc, 0xdd },
+        0x11,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxh r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd },
+        0x2211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxw r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0xcc, 0xdd },
+        0x44332211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxdw r0, [r1+2]
+        \\  exit
+    ,
+        &.{
+            0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44,
+            0x55, 0x66, 0x77, 0x88, 0xcc, 0xdd,
+        },
+        0x8877665544332211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxdw r0, [r1+6]
+        \\  exit
+    ,
+        &.{
+            0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44,
+            0x55, 0x66, 0x77, 0x88, 0xcc, 0xdd,
+        },
+        error.InvalidVirtualAddress,
+    );
+}
+
 fn testAsm(source: []const u8, expected: anytype) !void {
     return testAsmWithMemory(source, &.{}, expected);
 }

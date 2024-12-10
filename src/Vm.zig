@@ -156,9 +156,21 @@ fn step(vm: *Vm) !bool {
             }
         },
 
+        .ld_b_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
+            registers.set(inst.dst, try vm.memop(u8, .load, vm_addr));
+        },
         .ld_h_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.imm);
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
             registers.set(inst.dst, try vm.memop(u16, .load, vm_addr));
+        },
+        .ld_w_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
+            registers.set(inst.dst, try vm.memop(u32, .load, vm_addr));
+        },
+        .ld_dw_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
+            registers.set(inst.dst, try vm.memop(u64, .load, vm_addr));
         },
 
         .exit => {

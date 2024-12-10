@@ -315,10 +315,10 @@ pub const Instruction = packed struct(u64) {
         .{ "exit" , .{ .inst = .no_operand,       .opc = jmp | exit_code } },
         .{ "lddw" , .{ .inst = .load_dw_imm,      .opc = ld  | imm | dw  } },
 
-        .{ "ldxb" , .{ .inst = .load_reg,         .opc = mem | ldx | b   } },
-        .{ "ldxh" , .{ .inst = .load_reg,         .opc = mem | ldx | h   } },
-        .{ "ldxw" , .{ .inst = .load_reg,         .opc = mem | ldx | w   } },
-        .{ "ldxd" , .{ .inst = .load_reg,         .opc = mem | ldx | dw  } },
+        .{ "ldxb"  , .{ .inst = .load_reg,         .opc = mem | ldx | b   } },
+        .{ "ldxh"  , .{ .inst = .load_reg,         .opc = mem | ldx | h   } },
+        .{ "ldxw"  , .{ .inst = .load_reg,         .opc = mem | ldx | w   } },
+        .{ "ldxdw" , .{ .inst = .load_reg,         .opc = mem | ldx | dw  } },
 
         // zig fmt: on
     });
