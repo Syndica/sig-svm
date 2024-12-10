@@ -265,6 +265,32 @@ test "alu" {
     , 0x11);
 }
 
+test "shift" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0x1
+        \\  mov r7, 4
+        \\  lsh r0, r7
+        \\  exit
+    , 0x10);
+
+    try testAsm(
+        \\entrypoint:
+        \\  xor r0, r0
+        \\  add r0, -1
+        \\  rsh32 r0, 8
+        \\  exit
+    , 0x00ffffff);
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0x10
+        \\  mov r7, 4
+        \\  rsh r0, r7
+        \\  exit
+    , 0x1);
+}
+
 fn testAsm(source: []const u8, expected: anytype) !void {
     const allocator = std.testing.allocator;
     var executable = try Executable.fromAsm(allocator, source);
