@@ -53,31 +53,6 @@ pub const Instruction = packed struct(u64) {
         /// bpf opcode: `stxdw [dst + off], src` /// `(dst + offset) as u64 = src`.
         st_dw_reg = stx | mem | dw,
 
-        // /// bpf opcode: `ldxb dst, [src + off]` /// `dst = (src + off) as u8`.
-        // ld_1b_reg = alu32_load | x | @"1b",
-        // /// bpf opcode: `ldxh dst, [src + off]` /// `dst = (src + off) as u16`.
-        // ld_2b_reg = alu32_load | x | @"2b",
-        // /// bpf opcode: `ldxw dst, [src + off]` /// `dst = (src + off) as u32`.
-        // ld_4b_reg = alu32_load | x | @"4b",
-        // /// bpf opcode: `ldxdw dst, [src + off]` /// `dst = (src + off) as u64`.
-        // ld_8b_reg = alu32_load | x | @"8b",
-        // /// bpf opcode: `stb [dst + off], imm` /// `(dst + offset) as u8 = imm`.
-        // st_1b_imm = alu64_store | k | @"1b",
-        // /// bpf opcode: `sth [dst + off], imm` /// `(dst + offset) as u16 = imm`.
-        // st_2b_imm = alu64_store | k | @"2b",
-        // /// bpf opcode: `stw [dst + off], imm` /// `(dst + offset) as u32 = imm`.
-        // st_4b_imm = alu64_store | k | @"4b",
-        // /// bpf opcode: `stdw [dst + off], imm` /// `(dst + offset) as u64 = imm`.
-        // st_8b_imm = alu64_store | k | @"8b",
-        // /// bpf opcode: `stxb [dst + off], src` /// `(dst + offset) as u8 = src`.
-        // st_1b_reg = alu64_store | x | @"1b",
-        // /// bpf opcode: `stxh [dst + off], src` /// `(dst + offset) as u16 = src`.
-        // st_2b_reg = alu64_store | x | @"2b",
-        // /// bpf opcode: `stxw [dst + off], src` /// `(dst + offset) as u32 = src`.
-        // st_4b_reg = alu64_store | x | @"4b",
-        // /// bpf opcode: `stxdw [dst + off], src` /// `(dst + offset) as u64 = src`.
-        // st_8b_reg = alu64_store | x | @"8b",
-
         /// bpf opcode: `add32 dst, imm` /// `dst += imm`.
         add32_imm = alu32_load | k | add,
         /// bpf opcode: `add32 dst, src` /// `dst += src`.
@@ -310,11 +285,6 @@ pub const Instruction = packed struct(u64) {
 
         /// bpf opcode: `exit` /// `return r0`. /// valid only until sbpfv3
         exit = jmp | exit_code,
-
-        /// bpf opcode: `return` /// `return r0`. /// valid only since sbpfv3
-        @"return" = jmp | x | exit_code,
-        /// bpf opcode: `syscall` /// `syscall imm`. /// valid only since sbpfv3
-        // syscall = jmp | syscall,
         _,
     };
 
@@ -344,7 +314,7 @@ pub const Instruction = packed struct(u64) {
     pub const map = std.StaticStringMap(Entry).initComptime(&.{
         // zig fmt: off
         .{ "mov32", .{ .inst = .alu_binary, .opc = mov | alu32_load } },
-        .{ "exit",  .{ .inst = .no_operand, .opc = exit_code        } },
+        .{ "exit",  .{ .inst = .no_operand, .opc = jmp | exit_code  } },
         // zig fmt: on
     });
 

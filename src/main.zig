@@ -36,17 +36,16 @@ pub fn main() !void {
     // defer elf.deinit(allocator);
     // try elf.validate();
 
-    try Executable.fromAsm(allocator,
+    var executable = try Executable.fromAsm(allocator,
         \\entrypoint:
         \\    mov32 r0, 16
         \\    exit
-        \\
     );
-    // defer executable.deinit(allocator);
+    defer executable.deinit(allocator);
 
-    // var vm = try Vm.init(&executable, allocator);
-    // defer vm.deinit();
-    // try vm.run();
+    var vm = try Vm.init(&executable, allocator);
+    defer vm.deinit();
+    try vm.run();
 }
 
 fn fail(comptime fmt: []const u8, args: anytype) noreturn {
