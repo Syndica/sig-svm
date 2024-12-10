@@ -1,6 +1,5 @@
 //! Constants to do with Solana's EBPF
 
-/// Solana BPF Elf E-Flag
 pub const EF_SBPF_V2: u32 = 0x20;
 
 /// Solana BPF Elf Machine

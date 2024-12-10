@@ -1,6 +1,8 @@
 const std = @import("std");
 const Executable = @import("Executable.zig");
 const ebpf = @import("ebpf.zig");
+const memory = @import("memory.zig");
+const MemoryMap = memory.MemoryMap;
 const Vm = @This();
 
 const log = std.log.scoped(.vm);
@@ -8,6 +10,7 @@ const log = std.log.scoped(.vm);
 allocator: std.mem.Allocator,
 executable: *const Executable,
 registers: std.EnumArray(ebpf.Instruction.Register, u64),
+memory_map: MemoryMap,
 depth: u64,
 
 pub fn init(executable: *const Executable, allocator: std.mem.Allocator) !Vm {
@@ -15,6 +18,7 @@ pub fn init(executable: *const Executable, allocator: std.mem.Allocator) !Vm {
         .executable = executable,
         .allocator = allocator,
         .registers = std.EnumArray(ebpf.Instruction.Register, u64).initFill(0),
+        .memory_map = undefined,
         .depth = 0,
     };
     vm.registers.set(.pc, executable.entry_pc);
