@@ -1,6 +1,13 @@
 const std = @import("std");
 const Vm = @import("Vm.zig");
 const Executable = @import("Executable.zig");
+const memory = @import("memory.zig");
+const MemoryMap = memory.MemoryMap;
+const Region = memory.Region;
+
+comptime {
+    _ = &memory;
+}
 
 const expectEqual = std.testing.expectEqual;
 
@@ -292,11 +299,22 @@ test "shift" {
 }
 
 fn testAsm(source: []const u8, expected: anytype) !void {
+    return testAsmWithMemory(source, &.{}, expected);
+}
+
+fn testAsmWithMemory(source: []const u8, program_memory: []const u8, expected: anytype) !void {
     const allocator = std.testing.allocator;
     var executable = try Executable.fromAsm(allocator, source);
     defer executable.deinit(allocator);
 
-    var vm = try Vm.init(&executable, allocator);
+    const m = try MemoryMap.init(&.{
+        Region.init(.readable, &.{}, memory.PROGRAM_START),
+        Region.init(.readable, &.{}, memory.STACK_START),
+        Region.init(.readable, &.{}, memory.HEAP_START),
+        Region.init(.readable, program_memory, memory.INPUT_START),
+    }, .v1);
+
+    var vm = try Vm.init(&executable, m, allocator);
     defer vm.deinit();
 
     const result = vm.run();

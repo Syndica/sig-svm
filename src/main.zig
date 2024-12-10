@@ -40,27 +40,15 @@ pub fn main() !void {
     var executable = try Executable.fromAsm(allocator, bytes);
     defer executable.deinit(allocator);
 
-    const program_mem = try allocator.alloc(u8, 100);
-    defer allocator.free(program_mem);
-    @memset(program_mem, 0xAA);
-
-    const stack_mem = try allocator.alloc(u8, 100);
-    defer allocator.free(stack_mem);
-    @memset(stack_mem, 0xBB);
-
-    const heap_mem = try allocator.alloc(u8, 100);
-    defer allocator.free(heap_mem);
-    @memset(heap_mem, 0xCC);
-
     const input_mem = try allocator.alloc(u8, 100);
     defer allocator.free(input_mem);
-    @memset(input_mem, 0xDD);
+    @memset(input_mem, 0xAA);
 
     const m = try MemoryMap.init(&.{
-        memory.Region.init(program_mem, memory.PROGRAM_START, .readable),
-        memory.Region.init(stack_mem, memory.STACK_START, .readable),
-        memory.Region.init(heap_mem, memory.HEAP_START, .readable),
-        memory.Region.init(input_mem, memory.INPUT_START, .readable),
+        memory.Region.init(.readable, &.{}, memory.PROGRAM_START),
+        memory.Region.init(.readable, &.{}, memory.STACK_START),
+        memory.Region.init(.readable, &.{}, memory.HEAP_START),
+        memory.Region.init(.readable, input_mem, memory.INPUT_START),
     }, executable.version);
 
     var vm = try Vm.init(&executable, m, allocator);

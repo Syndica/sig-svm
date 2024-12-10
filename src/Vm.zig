@@ -180,7 +180,7 @@ fn step(vm: *Vm) !bool {
     return true;
 }
 
-fn memop(vm: *Vm, T: type, access: memory.AccessType, vm_addr: u64) !T {
+fn memop(vm: *Vm, T: type, comptime access: memory.AccessType, vm_addr: u64) !T {
     const slice = try vm.memory_map.vmap(access, vm_addr, @sizeOf(T));
     return std.mem.readInt(T, slice[0..@sizeOf(T)], .little);
 }

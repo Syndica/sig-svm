@@ -20,7 +20,12 @@ pub const MemoryMap = union(enum) {
         };
     }
 
-    pub fn vmap(map: MemoryMap, access: AccessType, vm_addr: u64, len: u64) ![]u8 {
+    pub fn vmap(
+        map: MemoryMap,
+        comptime access: AccessType,
+        vm_addr: u64,
+        len: u64,
+    ) !access.Slice() {
         return switch (map) {
             .aligned => |aligned| aligned.vmap(access, vm_addr, len),
         };
@@ -30,37 +35,67 @@ pub const MemoryMap = union(enum) {
 pub const AccessType = enum {
     load,
     store,
+
+    fn Slice(access: AccessType) type {
+        return switch (access) {
+            .load => []const u8,
+            .store => []u8,
+        };
+    }
+
+    fn Many(access: AccessType) type {
+        return switch (access) {
+            .load => [*]const u8,
+            .store => [*]u8,
+        };
+    }
 };
 
 const MemoryState = enum {
     readable,
     writeable,
+
+    fn Slice(state: MemoryState) type {
+        return switch (state) {
+            .readable => []const u8,
+            .writeable => []u8,
+        };
+    }
 };
 
 pub const Region = struct {
-    slice: []u8,
+    host_addr: u64,
+    len: u64,
+
     vm_addr_start: u64,
     vm_addr_end: u64,
-    state: MemoryState,
+    state: MemoryState = .readable,
 
     // TODO: use the `state` to ensure `slice` is immutable for readonly regions
-    pub fn init(slice: []u8, vm_addr: u64, state: MemoryState) Region {
+    pub fn init(comptime state: MemoryState, slice: state.Slice(), vm_addr: u64) Region {
         const vm_addr_end = vm_addr +| slice.len;
 
         return .{
-            .slice = slice,
+            .host_addr = @intFromPtr(slice.ptr),
+            .len = slice.len,
             .vm_addr_start = vm_addr,
             .vm_addr_end = vm_addr_end,
             .state = state,
         };
     }
 
-    fn translate(reg: Region, vm_addr: u64, len: u64) ![]u8 {
+    fn translate(
+        reg: Region,
+        comptime access: AccessType,
+        vm_addr: u64,
+        len: u64,
+    ) !access.Slice() {
         if (vm_addr < reg.vm_addr_start) return error.InvalidVirtualAddress;
 
         const begin_offset = vm_addr -| reg.vm_addr_start;
-        if (len <= reg.slice.len) {
-            return (reg.slice.ptr + begin_offset)[0..len];
+        if (len <= reg.len) {
+            const host_addr = reg.host_addr + begin_offset;
+            return @as(access.Many(), @ptrFromInt(host_addr))[0..len];
         }
 
         return error.InvalidVirtualAddress;
@@ -100,9 +135,18 @@ const AlignedMemoryMap = struct {
         return error.AccessViolation;
     }
 
-    fn vmap(map: *const AlignedMemoryMap, access: AccessType, vm_addr: u64, len: u64) ![]u8 {
+    fn vmap(
+        map: *const AlignedMemoryMap,
+        comptime access: AccessType,
+        vm_addr: u64,
+        len: u64,
+    ) !access.Slice() {
         const reg = try map.region(access, vm_addr);
-        return reg.translate(vm_addr, len);
+        return switch (access) {
+            .store,
+            .load,
+            => |state| reg.translate(state, vm_addr, len),
+        };
     }
 };
 
@@ -114,8 +158,8 @@ test "aligned vmap" {
     var stack_mem: [4]u8 = .{0xDD} ** 4;
 
     const m = try MemoryMap.init(&.{
-        Region.init(&program_mem, PROGRAM_START, .writeable),
-        Region.init(&stack_mem, STACK_START, .readable),
+        Region.init(.writeable, &program_mem, PROGRAM_START),
+        Region.init(.readable, &stack_mem, STACK_START),
     }, .v1);
 
     try expectEqual(
@@ -150,8 +194,8 @@ test "aligned region" {
     var stack_mem: [4]u8 = .{0xDD} ** 4;
 
     const m = try MemoryMap.init(&.{
-        Region.init(&program_mem, PROGRAM_START, .writeable),
-        Region.init(&stack_mem, STACK_START, .readable),
+        Region.init(.writeable, &program_mem, PROGRAM_START),
+        Region.init(.readable, &stack_mem, STACK_START),
     }, .v1);
 
     try expectError(
@@ -159,12 +203,12 @@ test "aligned region" {
         m.region(.load, PROGRAM_START - 1),
     );
     try expectEqual(
-        &program_mem,
-        (try m.region(.load, PROGRAM_START)).slice,
+        @intFromPtr(&program_mem),
+        (try m.region(.load, PROGRAM_START)).host_addr,
     );
     try expectEqual(
-        &program_mem,
-        (try m.region(.load, PROGRAM_START + 3)).slice,
+        @intFromPtr(&program_mem),
+        (try m.region(.load, PROGRAM_START + 3)).host_addr,
     );
     try expectError(
         error.AccessViolation,
@@ -176,12 +220,12 @@ test "aligned region" {
         m.region(.store, STACK_START),
     );
     try expectEqual(
-        &stack_mem,
-        (try m.region(.load, STACK_START)).slice,
+        @intFromPtr(&stack_mem),
+        (try m.region(.load, STACK_START)).host_addr,
     );
     try expectEqual(
-        &stack_mem,
-        (try m.region(.load, STACK_START + 3)).slice,
+        @intFromPtr(&stack_mem),
+        (try m.region(.load, STACK_START + 3)).host_addr,
     );
     try expectError(
         error.AccessViolation,
@@ -196,8 +240,8 @@ test "invalid memory region" {
     try expectError(
         error.InvalidMemoryRegion,
         MemoryMap.init(&.{
-            Region.init(&stack_mem, STACK_START, .readable),
-            Region.init(&program_mem, PROGRAM_START, .writeable),
+            Region.init(.readable, &stack_mem, STACK_START),
+            Region.init(.writeable, &program_mem, PROGRAM_START),
         }, .v1),
     );
 }
