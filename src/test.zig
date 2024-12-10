@@ -298,6 +298,58 @@ test "shift" {
     , 0x1);
 }
 
+test "be" {
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxh r0, [r1]
+        \\  be16 r0
+        \\  exit
+    ,
+        &.{ 0x11, 0x22 },
+        0x1122,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxdw r0, [r1]
+        \\  be16 r0
+        \\  exit
+    ,
+        &.{ 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        0x1122,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxw r0, [r1]
+        \\  be32 r0
+        \\  exit
+    ,
+        &.{ 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        0x11223344,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxdw r0, [r1]
+        \\  be32 r0
+        \\  exit
+    ,
+        &.{ 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        0x11223344,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxdw r0, [r1]
+        \\  be64 r0
+        \\  exit
+    ,
+        &.{ 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        0x1122334455667788,
+    );
+}
+
 test "load" {
     try testAsmWithMemory(
         \\entrypoint:
@@ -348,6 +400,142 @@ test "load" {
             0x55, 0x66, 0x77, 0x88, 0xcc, 0xdd,
         },
         error.InvalidVirtualAddress,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  ldxdw r0, [r1+6]
+        \\  exit
+    ,
+        &.{},
+        error.AccessViolation,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, r1
+        \\  ldxb r9, [r0+0]
+        \\  lsh r9, 0
+        \\  ldxb r8, [r0+1]
+        \\  lsh r8, 4
+        \\  ldxb r7, [r0+2]
+        \\  lsh r7, 8
+        \\  ldxb r6, [r0+3]
+        \\  lsh r6, 12
+        \\  ldxb r5, [r0+4]
+        \\  lsh r5, 16
+        \\  ldxb r4, [r0+5]
+        \\  lsh r4, 20
+        \\  ldxb r3, [r0+6]
+        \\  lsh r3, 24
+        \\  ldxb r2, [r0+7]
+        \\  lsh r2, 28
+        \\  ldxb r1, [r0+8]
+        \\  lsh r1, 32
+        \\  ldxb r0, [r0+9]
+        \\  lsh r0, 36
+        \\  or r0, r1
+        \\  or r0, r2
+        \\  or r0, r3
+        \\  or r0, r4
+        \\  or r0, r5
+        \\  or r0, r6
+        \\  or r0, r7
+        \\  or r0, r8
+        \\  or r0, r9
+        \\  exit
+    ,
+        &.{
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+            0x07, 0x08, 0x09,
+        },
+        0x9876543210,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, r1
+        \\  ldxh r9, [r0+0]
+        \\  be16 r9
+        \\  ldxh r8, [r0+2]
+        \\  be16 r8
+        \\  ldxh r7, [r0+4]
+        \\  be16 r7
+        \\  ldxh r6, [r0+6]
+        \\  be16 r6
+        \\  ldxh r5, [r0+8]
+        \\  be16 r5
+        \\  ldxh r4, [r0+10]
+        \\  be16 r4
+        \\  ldxh r3, [r0+12]
+        \\  be16 r3
+        \\  ldxh r2, [r0+14]
+        \\  be16 r2
+        \\  ldxh r1, [r0+16]
+        \\  be16 r1
+        \\  ldxh r0, [r0+18]
+        \\  be16 r0
+        \\  or r0, r1
+        \\  or r0, r2
+        \\  or r0, r3
+        \\  or r0, r4
+        \\  or r0, r5
+        \\  or r0, r6
+        \\  or r0, r7
+        \\  or r0, r8
+        \\  or r0, r9
+        \\  exit
+    ,
+        &.{
+            0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08,
+            0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80,
+            0x01, 0x00, 0x02, 0x00,
+        },
+        0x3FF,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, r1
+        \\  ldxw r9, [r0+0]
+        \\  be32 r9
+        \\  ldxw r8, [r0+4]
+        \\  be32 r8
+        \\  ldxw r7, [r0+8]
+        \\  be32 r7
+        \\  ldxw r6, [r0+12]
+        \\  be32 r6
+        \\  ldxw r5, [r0+16]
+        \\  be32 r5
+        \\  ldxw r4, [r0+20]
+        \\  be32 r4
+        \\  ldxw r3, [r0+24]
+        \\  be32 r3
+        \\  ldxw r2, [r0+28]
+        \\  be32 r2
+        \\  ldxw r1, [r0+32]
+        \\  be32 r1
+        \\  ldxw r0, [r0+36]
+        \\  be32 r0
+        \\  or r0, r1
+        \\  or r0, r2
+        \\  or r0, r3
+        \\  or r0, r4
+        \\  or r0, r5
+        \\  or r0, r6
+        \\  or r0, r7
+        \\  or r0, r8
+        \\  or r0, r9
+        \\  exit
+    ,
+        &.{
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02,
+            0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08,
+            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00,
+            0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+        },
+        0x030F0F,
     );
 }
 

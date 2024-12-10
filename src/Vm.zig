@@ -173,6 +173,29 @@ fn step(vm: *Vm) !bool {
             registers.set(inst.dst, try vm.memop(u64, .load, vm_addr));
         },
 
+        .be => registers.set(inst.dst, switch (inst.imm) {
+            inline //
+            16,
+            32,
+            64,
+            => |size| std.mem.nativeToBig(
+                std.meta.Int(.unsigned, size),
+                @truncate(registers.get(inst.dst)),
+            ),
+            else => return error.InvalidInstruction,
+        }),
+        .le => registers.set(inst.dst, switch (inst.imm) {
+            inline //
+            16,
+            32,
+            64,
+            => |size| std.mem.nativeToLittle(
+                std.meta.Int(.unsigned, size),
+                @truncate(registers.get(inst.dst)),
+            ),
+            else => return error.InvalidInstruction,
+        }),
+
         .exit => {
             if (vm.depth == 0) {
                 return false;

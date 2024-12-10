@@ -248,7 +248,7 @@ pub const Instruction = packed struct(u64) {
         syscall,
         call_imm,
         call_reg,
-        endian: i64,
+        endian: u32,
         no_operand,
     };
 
@@ -319,6 +319,14 @@ pub const Instruction = packed struct(u64) {
         .{ "ldxh"  , .{ .inst = .load_reg,         .opc = mem | ldx | h   } },
         .{ "ldxw"  , .{ .inst = .load_reg,         .opc = mem | ldx | w   } },
         .{ "ldxdw" , .{ .inst = .load_reg,         .opc = mem | ldx | dw  } },
+
+        .{ "be16", .{ .inst = .{.endian = 16 }, .opc = alu32_load | x | end } },
+        .{ "be32", .{ .inst = .{.endian = 32 }, .opc = alu32_load | x | end } },
+        .{ "be64", .{ .inst = .{.endian = 64 }, .opc = alu32_load | x | end } },
+
+        .{ "le16", .{ .inst = .{.endian = 16 }, .opc = alu32_load | k | end } },
+        .{ "le32", .{ .inst = .{.endian = 32 }, .opc = alu32_load | k | end } },
+        .{ "le64", .{ .inst = .{.endian = 64 }, .opc = alu32_load | k | end } },
 
         // zig fmt: on
     });

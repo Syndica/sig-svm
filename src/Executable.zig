@@ -160,7 +160,14 @@ const Assembler = struct {
                             .off = @intCast(operands[1].memory.offset),
                             .imm = 0,
                         },
-                        else => std.debug.panic("TODO:  {s}", .{@tagName(bind.inst)}),
+                        .endian => |bits| .{
+                            .opcode = @enumFromInt(bind.opc),
+                            .dst = operands[0].register,
+                            .src = .r0,
+                            .off = 0,
+                            .imm = bits,
+                        },
+                        else => std.debug.panic("TODO: {s}", .{@tagName(bind.inst)}),
                     };
 
                     try instructions.append(allocator, instruction);
