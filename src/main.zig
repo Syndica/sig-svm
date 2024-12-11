@@ -16,17 +16,22 @@ pub fn main() !void {
         std.heap.c_allocator;
 
     var input_path: ?[]const u8 = null;
+    var assemble: bool = false;
 
     var args = try std.process.argsWithAllocator(allocator);
     _ = args.next();
     while (args.next()) |arg| {
+        if (std.mem.eql(u8, arg, "-a")) {
+            assemble = true;
+            continue;
+        }
+
         if (input_path) |file| {
             fail("input file already given: {s}", .{file});
         } else {
             input_path = arg;
         }
     }
-
     if (input_path == null) {
         fail("no input file provided", .{});
     }
@@ -34,26 +39,28 @@ pub fn main() !void {
     const input_file = try std.fs.cwd().openFile(input_path.?, .{});
     defer input_file.close();
 
-    // const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
-    // defer allocator.free(bytes);
+    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    defer allocator.free(bytes);
 
-    var elf = try Elf.parse(allocator, input_file);
-    defer elf.deinit(allocator);
-
-    var executable = try Executable.fromElf(allocator, &elf);
-    defer executable.deinit(allocator);
-
-    // var executable = try Executable.fromAsm(allocator, bytes);
-    // defer executable.deinit(allocator);
+    var executable = if (assemble)
+        try Executable.fromAsm(allocator, bytes)
+    else exec: {
+        const elf = try Elf.parse(bytes);
+        break :exec try Executable.fromElf(&elf);
+    };
+    defer if (assemble) executable.deinit(allocator);
 
     const input_mem = try allocator.alloc(u8, 100);
     defer allocator.free(input_mem);
     @memset(input_mem, 0xAA);
 
+    const stack_memory = try allocator.alloc(u8, 4096);
+    defer allocator.free(stack_memory);
+
     const m = try MemoryMap.init(&.{
         memory.Region.init(.readable, &.{}, memory.PROGRAM_START),
-        memory.Region.init(.readable, &.{}, memory.STACK_START),
-        memory.Region.init(.readable, &.{}, memory.HEAP_START),
+        memory.Region.init(.writeable, stack_memory, memory.STACK_START),
+        memory.Region.init(.writeable, &.{}, memory.HEAP_START),
         memory.Region.init(.readable, input_mem, memory.INPUT_START),
     }, executable.version);
 

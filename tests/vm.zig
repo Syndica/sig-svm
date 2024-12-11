@@ -1397,6 +1397,35 @@ test "jslt reg" {
     );
 }
 
+test "stack1" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r1, 51
+        \\  stdw [r10-16], 0xab
+        \\  stdw [r10-8], 0xcd
+        \\  and r1, 1
+        \\  lsh r1, 3
+        \\  mov r2, r10
+        \\  add r2, r1
+        \\  ldxdw r0, [r2-16]
+        \\  exit
+    ,
+        0xcd,
+    );
+}
+
+test "entrypoint exit" {
+    try testAsm(
+        \\entrypoint:
+        \\  call function_foo
+        \\  mov r0, 42
+        \\  exit
+        \\function_foo:
+        \\  mov r0, 12
+        \\  exit
+    , 42);
+}
+
 fn testAsm(source: []const u8, expected: anytype) !void {
     return testAsmWithMemory(source, &.{}, expected);
 }
@@ -1409,9 +1438,12 @@ fn testAsmWithMemory(source: []const u8, program_memory: []const u8, expected: a
     const mutable = try allocator.dupe(u8, program_memory);
     defer allocator.free(mutable);
 
+    const stack_memory = try allocator.alloc(u8, 4096);
+    defer allocator.free(stack_memory);
+
     const m = try MemoryMap.init(&.{
         Region.init(.readable, &.{}, memory.PROGRAM_START),
-        Region.init(.readable, &.{}, memory.STACK_START),
+        Region.init(.writeable, stack_memory, memory.STACK_START),
         Region.init(.readable, &.{}, memory.HEAP_START),
         Region.init(.writeable, mutable, memory.INPUT_START),
     }, .v1);

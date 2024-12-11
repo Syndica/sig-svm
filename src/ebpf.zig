@@ -317,9 +317,6 @@ pub const Instruction = packed struct(u64) {
         .{ "jsge" , .{ .inst = .jump_conditional, .opc = jsge |  jmp  } },
         .{ "jslt" , .{ .inst = .jump_conditional, .opc = jslt |  jmp  } },
         .{ "jsle" , .{ .inst = .jump_conditional, .opc = jsle |  jmp  } },
-        
-        .{ "exit" , .{ .inst = .no_operand,       .opc = jmp | exit_code } },
-        .{ "lddw" , .{ .inst = .load_dw_imm,      .opc = ld  | imm | dw  } },
 
         .{ "ldxb"  , .{ .inst = .load_reg,         .opc = mem | ldx | b   } },
         .{ "ldxh"  , .{ .inst = .load_reg,         .opc = mem | ldx | h   } },
@@ -343,6 +340,11 @@ pub const Instruction = packed struct(u64) {
         .{ "le16", .{ .inst = .{.endian = 16 }, .opc = alu32_load | k | end } },
         .{ "le32", .{ .inst = .{.endian = 32 }, .opc = alu32_load | k | end } },
         .{ "le64", .{ .inst = .{.endian = 64 }, .opc = alu32_load | k | end } },
+
+        .{ "exit"  , .{ .inst = .no_operand,       .opc = jmp | exit_code } },
+        .{ "lddw"  , .{ .inst = .load_dw_imm,      .opc = ld  | imm | dw  } },
+        .{ "call"  , .{ .inst = .call_imm,         .opc = jmp | call      } },
+        .{ "callx" , .{ .inst = .call_reg,         .opc = jmp | call | x  } },
 
         // zig fmt: on
     });

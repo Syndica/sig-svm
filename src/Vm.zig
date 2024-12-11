@@ -9,8 +9,12 @@ const log = std.log.scoped(.vm);
 
 allocator: std.mem.Allocator,
 executable: *const Executable,
+
 registers: std.EnumArray(ebpf.Instruction.Register, u64),
 memory_map: MemoryMap,
+
+stack_pointer: u64,
+call_frames: std.ArrayListUnmanaged(CallFrame),
 depth: u64,
 
 pub fn init(
@@ -24,8 +28,11 @@ pub fn init(
         .registers = std.EnumArray(ebpf.Instruction.Register, u64).initFill(0),
         .memory_map = memory_map,
         .depth = 0,
+        .stack_pointer = 0,
+        .call_frames = try std.ArrayListUnmanaged(CallFrame).initCapacity(allocator, 64),
     };
 
+    vm.registers.set(.r10, memory.STACK_START + 4096);
     vm.registers.set(.r1, memory.INPUT_START);
     vm.registers.set(.pc, executable.entry_pc);
 
@@ -33,7 +40,7 @@ pub fn init(
 }
 
 pub fn deinit(vm: *Vm) void {
-    _ = vm;
+    vm.call_frames.deinit(vm.allocator);
 }
 
 pub fn run(vm: *Vm) !u64 {
@@ -51,10 +58,12 @@ fn step(vm: *Vm) !bool {
 
     switch (inst.opcode) {
         .add64_reg => registers.set(inst.dst, registers.get(inst.dst) +% registers.get(inst.src)),
-        .add64_imm => registers.set(
-            inst.dst,
-            registers.get(inst.dst) +% @as(u64, @bitCast(@as(i64, @as(i32, @bitCast(inst.imm))))),
-        ),
+        .add64_imm => {
+            registers.set(
+                inst.dst,
+                registers.get(inst.dst) +% @as(u64, @bitCast(@as(i64, @as(i32, @bitCast(inst.imm))))),
+            );
+        },
         .add32_reg => registers.set(
             inst.dst,
             @as(u32, @truncate(registers.get(inst.dst))) +% @as(u32, @truncate(registers.get(inst.src))),
@@ -254,38 +263,43 @@ fn step(vm: *Vm) !bool {
             const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
             registers.set(inst.dst, try vm.load(u64, vm_addr));
         },
+        .ld_dw_imm => {
+            const value: u64 = (@as(u64, instructions[next_pc].imm) << 32) | inst.imm;
+            registers.set(inst.dst, value);
+            next_pc += 1;
+        },
 
         .st_b_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u8, vm_addr, @truncate(registers.get(inst.src)));
         },
         .st_h_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u16, vm_addr, @truncate(registers.get(inst.src)));
         },
         .st_w_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u32, vm_addr, @truncate(registers.get(inst.src)));
         },
         .st_dw_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u64, vm_addr, registers.get(inst.src));
         },
 
         .st_b_imm => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u8, vm_addr, @truncate(inst.imm));
         },
         .st_h_imm => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u16, vm_addr, @truncate(inst.imm));
         },
         .st_w_imm => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u32, vm_addr, @truncate(inst.imm));
         },
         .st_dw_imm => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
             try vm.store(u64, vm_addr, inst.imm);
         },
 
@@ -401,12 +415,20 @@ fn step(vm: *Vm) !bool {
             if (vm.depth == 0) {
                 return false;
             }
-            @panic("TODO: return from function");
+
+            vm.depth -= 1;
+            const frame = vm.call_frames.pop();
+            vm.registers.set(.r10, frame.fp);
+            @memcpy(vm.registers.values[6..][0..4], &frame.caller_saved_regs);
+            vm.stack_pointer -= 4096;
+            next_pc = frame.return_pc;
         },
-        .ld_dw_imm => {
-            const value: u64 = (@as(u64, instructions[next_pc].imm) << 32) | inst.imm;
-            registers.set(inst.dst, value);
-            next_pc += 1;
+
+        .call_imm => {
+            try vm.pushCallFrame();
+
+            const target_pc = inst.imm;
+            next_pc = target_pc;
         },
 
         else => std.debug.panic("TODO: step {}", .{inst}),
@@ -425,3 +447,24 @@ fn store(vm: *Vm, T: type, vm_addr: u64, value: T) !void {
     const slice = try vm.memory_map.vmap(.store, vm_addr, @sizeOf(T));
     slice[0..@sizeOf(T)].* = @bitCast(value);
 }
+
+fn pushCallFrame(vm: *Vm) !void {
+    const frame = vm.call_frames.addOneAssumeCapacity();
+    @memcpy(&frame.caller_saved_regs, vm.registers.values[6..][0..4]);
+    frame.fp = vm.registers.get(.r10);
+    frame.return_pc = vm.registers.get(.pc) + 1;
+
+    vm.depth += 1;
+    if (vm.depth == 64) {
+        return error.CallDepthExceeded;
+    }
+
+    vm.stack_pointer += 4096;
+    vm.registers.set(.r10, vm.stack_pointer);
+}
+
+const CallFrame = struct {
+    caller_saved_regs: [4]u64,
+    fp: u64,
+    return_pc: u64,
+};

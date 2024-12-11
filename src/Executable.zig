@@ -200,6 +200,23 @@ const Assembler = struct {
                             .off = 0,
                             .imm = bits,
                         },
+                        .call_imm => inst: {
+                            const is_label = operands[0] == .label;
+                            if (is_label) {
+                                const label = operands[0].label;
+                                const target_pc = labels.get(label) orelse
+                                    std.debug.panic("label not found: {s}", .{label});
+                                break :inst .{
+                                    .opcode = @enumFromInt(bind.opc),
+                                    .dst = .r0,
+                                    .src = .r1,
+                                    .off = 0,
+                                    .imm = @intCast(target_pc),
+                                };
+                            } else {
+                                @panic("TODO: imm call");
+                            }
+                        },
                         else => std.debug.panic("TODO: {s}", .{@tagName(bind.inst)}),
                     };
 
@@ -253,16 +270,12 @@ const Assembler = struct {
             const name = iter.next() orelse @panic("no mnem");
 
             while (iter.next()) |op| {
-                // register operand
                 if (std.mem.startsWith(u8, op, "r")) {
                     const reg = std.meta.stringToEnum(ebpf.Instruction.Register, op) orelse
                         @panic("unknown register");
                     try operands.append(allocator, .{ .register = reg });
                     continue;
-                }
-
-                // address operand
-                if (std.mem.startsWith(u8, op, "[")) {
+                } else if (std.mem.startsWith(u8, op, "[")) {
                     const left_bracket = std.mem.indexOfScalar(u8, op, '[').?;
                     const right_bracket = std.mem.indexOfScalar(u8, op, ']') orelse
                         @panic("no right bracket");
@@ -286,9 +299,9 @@ const Assembler = struct {
 
                     try operands.append(allocator, .{ .memory = .{ .base = reg, .offset = offset } });
                     continue;
-                }
-
-                if (std.fmt.parseInt(i64, op, 0)) |int| {
+                } else if (std.mem.startsWith(u8, op, "function_")) {
+                    try operands.append(allocator, .{ .label = op });
+                } else if (std.fmt.parseInt(i64, op, 0)) |int| {
                     try operands.append(allocator, .{ .integer = int });
                 } else |err| std.debug.panic("err: {s}", .{@errorName(err)});
             }
