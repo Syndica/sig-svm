@@ -50,11 +50,13 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run the test suite");
 
     inline for (&.{
-        lib_test_exe,
-        vm_test_exe,
-        elf_test_exe,
-    }) |exe| {
-        const test_run = b.addRunArtifact(exe);
-        test_step.dependOn(&test_run.step);
+        .{ lib_test_exe, "lib" },
+        .{ vm_test_exe, "svm" },
+        .{ elf_test_exe, "elf" },
+    }) |entry| {
+        const sub_step = b.step(b.fmt("test-{s}", .{entry[1]}), "");
+        const test_run = b.addRunArtifact(entry[0]);
+        sub_step.dependOn(&test_run.step);
+        test_step.dependOn(sub_step);
     }
 }

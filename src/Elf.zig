@@ -231,7 +231,6 @@ fn relocate(input: *Elf) !void {
     const text_section_index = input.getShdrIndexByName(".text") orelse
         return error.ShdrNotFound;
     const text_section = input.shdrs[text_section_index];
-    _ = text_section;
 
     for (input.dynamic_relocations_table) |reloc| {
         if (input.version != .v1) @panic("TODO here");
@@ -264,6 +263,46 @@ fn relocate(input: *Elf) !void {
                     const imm_high_offset = imm_offset +| 8;
                     const imm_slice = input.bytes[imm_high_offset..][0..4];
                     std.mem.writeInt(u32, imm_slice, @intCast(addr >> 32), .little);
+                }
+            },
+            .RELATIVE => {
+                const imm_offset = r_offset +| 4;
+
+                // is the relocation targetting inside of the text section
+                if (imm_offset >= text_section.sh_offset and
+                    imm_offset < text_section.sh_offset + text_section.sh_size)
+                {
+                    // the target is a lddw instruction which takes up two instruction
+                    // slots
+
+                    const va_low = val: {
+                        const imm_slice = input.bytes[imm_offset..][0..4];
+                        break :val std.mem.readInt(u32, imm_slice, .little);
+                    };
+
+                    const va_high = val: {
+                        const imm_high_offset = r_offset +| 12;
+                        const imm_slice = input.bytes[imm_high_offset..][0..4];
+                        break :val std.mem.readInt(u32, imm_slice, .little);
+                    };
+
+                    var ref_addr = (@as(u64, va_high) << 32) | va_low;
+                    if (ref_addr == 0) return error.InvalidVirtualAddress;
+
+                    if (ref_addr < memory.PROGRAM_START) {
+                        ref_addr +|= memory.PROGRAM_START;
+                    }
+
+                    {
+                        const imm_slice = input.bytes[imm_offset..][0..4];
+                        std.mem.writeInt(u32, imm_slice, @truncate(ref_addr), .little);
+                    }
+
+                    {
+                        const imm_high_offset = r_offset +| 12;
+                        const imm_slice = input.bytes[imm_high_offset..][0..4];
+                        std.mem.writeInt(u32, imm_slice, @intCast(ref_addr >> 32), .little);
+                    }
                 }
             },
             else => |t| std.debug.panic("TODO: handle relocation {s}", .{@tagName(t)}),
@@ -329,4 +368,14 @@ fn getPhdrIndexByType(self: *const Elf, p_type: elf.Elf64_Word) ?u32 {
         if (phdr.p_type == p_type) return @intCast(i);
     }
     return null;
+}
+
+// TODO: maybe something similar to RBPF's ro section compression. maybe that's needed?
+pub fn getRoRegion(self: *const Elf) ?memory.Region {
+    const rodata_index = self.getShdrIndexByName(".rodata") orelse return null;
+    return memory.Region.init(
+        .readable,
+        self.shdrSlice(rodata_index),
+        memory.PROGRAM_START + 0x140,
+    );
 }
