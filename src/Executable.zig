@@ -136,7 +136,13 @@ const Assembler = struct {
                                     .src = .r0,
                                     .off = @intCast(operands[2].integer),
                                     .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
-                                } else @panic("TODO: non-immediate non-label jump");
+                                } else .{
+                                    .opcode = @enumFromInt(bind.opc | ebpf.Instruction.x),
+                                    .dst = operands[0].register,
+                                    .src = operands[1].register,
+                                    .off = @intCast(operands[2].integer),
+                                    .imm = 0,
+                                };
                             }
                         },
                         .jump_unconditional => .{

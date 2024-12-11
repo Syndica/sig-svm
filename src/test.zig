@@ -695,6 +695,325 @@ test "store" {
     );
 }
 
+test "branch" {
+    try testAsm(
+        \\entrypoint:
+        \\  exit
+    ,
+        0x0,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 1
+        \\  ja +1
+        \\  mov r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0xa
+        \\  jeq r1, 0xb, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0xb
+        \\  jeq r1, 0xb, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0xa
+        \\  mov32 r2, 0xb
+        \\  jeq r1, r2, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0xb
+        \\  jeq r1, r2, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0xa
+        \\  jge r1, 0xb, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0xc
+        \\  jge r1, 0xb, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0xa
+        \\  mov32 r2, 0xb
+        \\  jge r1, r2, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0xb
+        \\  jge r1, r2, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 5
+        \\  jle r1, 4, +1
+        \\  jle r1, 6, +1
+        \\  exit
+        \\  jle r1, 5, +1
+        \\  exit
+        \\  mov32 r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0
+        \\  mov r1, 5
+        \\  mov r2, 4
+        \\  mov r3, 6
+        \\  jle r1, r2, +2
+        \\  jle r1, r1, +1
+        \\  exit
+        \\  jle r1, r3, +1
+        \\  exit
+        \\  mov r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 5
+        \\  jgt r1, 6, +2
+        \\  jgt r1, 5, +1
+        \\  jgt r1, 4, +1
+        \\  exit
+        \\  mov32 r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0
+        \\  mov r1, 5
+        \\  mov r2, 6
+        \\  mov r3, 4
+        \\  jgt r1, r2, +2
+        \\  jgt r1, r1, +1
+        \\  jgt r1, r3, +1
+        \\  exit
+        \\  mov r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 5
+        \\  jlt r1, 4, +2
+        \\  jlt r1, 5, +1
+        \\  jlt r1, 6, +1
+        \\  exit
+        \\  mov32 r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0
+        \\  mov r1, 5
+        \\  mov r2, 4
+        \\  mov r3, 6
+        \\  jlt r1, r2, +2
+        \\  jlt r1, r1, +1
+        \\  jlt r1, r3, +1
+        \\  exit
+        \\  mov r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0xb
+        \\  jne r1, 0xb, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0xa
+        \\  jne r1, 0xb, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0xb
+        \\  mov32 r2, 0xb
+        \\  jne r1, r2, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0xa
+        \\  jne r1, r2, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0x7
+        \\  jset r1, 0x8, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0x9
+        \\  jset r1, 0x8, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 0x7
+        \\  mov32 r2, 0x8
+        \\  jset r1, r2, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0x9
+        \\  jset r1, r2, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -2
+        \\  jsge r1, -1, +5
+        \\  jsge r1, 0, +4
+        \\  mov32 r0, 1
+        \\  mov r1, -1
+        \\  jsge r1, -1, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -1
+        \\  mov r2, -2
+        \\  mov32 r3, 0
+        \\  jsle r1, r2, +1
+        \\  jsle r1, r3, +1
+        \\  exit
+        \\  mov32 r0, 1
+        \\  mov r1, r2
+        \\  jsle r1, r2, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -2
+        \\  jsgt r1, -1, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  jsgt r1, -1, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -2
+        \\  mov r2, -1
+        \\  jsgt r1, r2, +4
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  jsgt r1, r2, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -2
+        \\  jslt r1, -3, +2
+        \\  jslt r1, -2, +1
+        \\  jslt r1, -1, +1
+        \\  exit
+        \\  mov32 r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -2
+        \\  mov r2, -3
+        \\  mov r3, -1
+        \\  jslt r1, r1, +2
+        \\  jslt r1, r2, +1
+        \\  jslt r1, r3, +1
+        \\  exit
+        \\  mov32 r0, 1
+        \\  exit
+    ,
+        0x1,
+    );
+}
+
 fn testAsm(source: []const u8, expected: anytype) !void {
     return testAsmWithMemory(source, &.{}, expected);
 }

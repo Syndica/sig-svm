@@ -120,7 +120,9 @@ fn step(vm: *Vm) !bool {
             inst.imm),
 
         .mov64_reg => registers.set(inst.dst, registers.get(inst.src)),
-        .mov64_imm => registers.set(inst.dst, inst.imm),
+        .mov64_imm => {
+            registers.set(inst.dst, @bitCast(@as(i64, @as(i32, @bitCast(inst.imm)))));
+        },
         .mov32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.src)))),
         .mov32_imm => registers.set(inst.dst, @as(u32, @truncate(inst.imm))),
 
@@ -148,13 +150,6 @@ fn step(vm: *Vm) !bool {
             inst.dst,
             @as(u32, @truncate(registers.get(inst.dst))) >> @truncate(inst.imm),
         ),
-
-        .ja => next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off),
-        .jeq_imm => {
-            if (registers.get(inst.dst) == inst.imm) {
-                next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-            }
-        },
 
         .ld_b_reg => {
             const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
@@ -229,6 +224,91 @@ fn step(vm: *Vm) !bool {
             ),
             else => return error.InvalidInstruction,
         }),
+
+        .ja => next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off),
+        .jeq_imm => if (registers.get(inst.dst) == inst.imm) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jeq_reg => if (registers.get(inst.dst) == registers.get(inst.src)) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jne_imm => if (registers.get(inst.dst) != inst.imm) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jne_reg => if (registers.get(inst.dst) != registers.get(inst.src)) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jge_imm => if (registers.get(inst.dst) >= inst.imm) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jge_reg => if (registers.get(inst.dst) >= registers.get(inst.src)) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jgt_imm => if (registers.get(inst.dst) > inst.imm) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jgt_reg => if (registers.get(inst.dst) > registers.get(inst.src)) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jle_imm => if (registers.get(inst.dst) <= inst.imm) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jle_reg => if (registers.get(inst.dst) <= registers.get(inst.src)) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jlt_imm => if (registers.get(inst.dst) < inst.imm) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jlt_reg => if (registers.get(inst.dst) < registers.get(inst.src)) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jset_imm => if (registers.get(inst.dst) & inst.imm != 0) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jset_reg => if (registers.get(inst.dst) & registers.get(inst.src) != 0) {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+
+        .jsge_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) >=
+            @as(i64, @as(i32, @bitCast(inst.imm))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jsge_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) >=
+            @as(i64, @bitCast(registers.get(inst.src))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jsgt_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) >
+            @as(i64, @as(i32, @bitCast(inst.imm))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jsgt_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) >
+            @as(i64, @bitCast(registers.get(inst.src))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jsle_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) <=
+            @as(i64, @as(i32, @bitCast(inst.imm))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jsle_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) <=
+            @as(i64, @bitCast(registers.get(inst.src))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jslt_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) <
+            @as(i64, @as(i32, @bitCast(inst.imm))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
+        .jslt_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) <
+            @as(i64, @bitCast(registers.get(inst.src))))
+        {
+            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        },
 
         .exit => {
             if (vm.depth == 0) {
