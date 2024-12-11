@@ -539,6 +539,162 @@ test "load" {
     );
 }
 
+test "store" {
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  stb [r1+2], 0x11
+        \\  ldxb r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0xff, 0xcc, 0xdd },
+        0x11,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  stw [r1+2], 0x44332211
+        \\  ldxw r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd },
+        0x44332211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  stdw [r1+2], 0x44332211
+        \\  ldxdw r0, [r1+2]
+        \\  exit
+    ,
+        &.{
+            0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd,
+        },
+        0x44332211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov32 r2, 0x11
+        \\  stxb [r1+2], r2
+        \\  ldxb r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0xff, 0xcc, 0xdd },
+        0x11,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov32 r2, 0x2211
+        \\  stxh [r1+2], r2
+        \\  ldxh r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0xff, 0xff, 0xcc, 0xdd },
+        0x2211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov32 r2, 0x44332211
+        \\  stxw [r1+2], r2
+        \\  ldxw r0, [r1+2]
+        \\  exit
+    ,
+        &.{ 0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd },
+        0x44332211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r2, -2005440939
+        \\  lsh r2, 32
+        \\  or r2, 0x44332211
+        \\  stxdw [r1+2], r2
+        \\  ldxdw r0, [r1+2]
+        \\  exit
+    ,
+        &.{
+            0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd,
+        },
+        0x8877665544332211,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, 0xf0
+        \\  mov r2, 0xf2
+        \\  mov r3, 0xf3
+        \\  mov r4, 0xf4
+        \\  mov r5, 0xf5
+        \\  mov r6, 0xf6
+        \\  mov r7, 0xf7
+        \\  mov r8, 0xf8
+        \\  stxb [r1], r0
+        \\  stxb [r1+1], r2
+        \\  stxb [r1+2], r3
+        \\  stxb [r1+3], r4
+        \\  stxb [r1+4], r5
+        \\  stxb [r1+5], r6
+        \\  stxb [r1+6], r7
+        \\  stxb [r1+7], r8
+        \\  ldxdw r0, [r1]
+        \\  be64 r0
+        \\  exit
+    ,
+        &.{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
+        0xf0f2f3f4f5f6f7f8,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, r1
+        \\  mov r1, 0xf1
+        \\  mov r9, 0xf9
+        \\  stxb [r0], r1
+        \\  stxb [r0+1], r9
+        \\  ldxh r0, [r0]
+        \\  be16 r0
+        \\  exit
+    ,
+        &.{ 0xff, 0xff },
+        0xf1f9,
+    );
+
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, r1
+        \\  ldxb r9, [r0+0]
+        \\  stxb [r0+1], r9
+        \\  ldxb r8, [r0+1]
+        \\  stxb [r0+2], r8
+        \\  ldxb r7, [r0+2]
+        \\  stxb [r0+3], r7
+        \\  ldxb r6, [r0+3]
+        \\  stxb [r0+4], r6
+        \\  ldxb r5, [r0+4]
+        \\  stxb [r0+5], r5
+        \\  ldxb r4, [r0+5]
+        \\  stxb [r0+6], r4
+        \\  ldxb r3, [r0+6]
+        \\  stxb [r0+7], r3
+        \\  ldxb r2, [r0+7]
+        \\  stxb [r0+8], r2
+        \\  ldxb r1, [r0+8]
+        \\  stxb [r0+9], r1
+        \\  ldxb r0, [r0+9]
+        \\  exit
+    ,
+        &.{
+            0x2a, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00,
+        },
+        0x2a,
+    );
+}
+
 fn testAsm(source: []const u8, expected: anytype) !void {
     return testAsmWithMemory(source, &.{}, expected);
 }
@@ -548,11 +704,14 @@ fn testAsmWithMemory(source: []const u8, program_memory: []const u8, expected: a
     var executable = try Executable.fromAsm(allocator, source);
     defer executable.deinit(allocator);
 
+    const mutable = try allocator.dupe(u8, program_memory);
+    defer allocator.free(mutable);
+
     const m = try MemoryMap.init(&.{
         Region.init(.readable, &.{}, memory.PROGRAM_START),
         Region.init(.readable, &.{}, memory.STACK_START),
         Region.init(.readable, &.{}, memory.HEAP_START),
-        Region.init(.readable, program_memory, memory.INPUT_START),
+        Region.init(.writeable, mutable, memory.INPUT_START),
     }, .v1);
 
     var vm = try Vm.init(&executable, m, allocator);

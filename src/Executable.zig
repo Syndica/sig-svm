@@ -45,7 +45,7 @@ const Assembler = struct {
 
         const Memory = struct {
             base: ebpf.Instruction.Register,
-            offset: i64,
+            offset: i16,
         };
     };
 
@@ -157,8 +157,22 @@ const Assembler = struct {
                             .opcode = @enumFromInt(bind.opc),
                             .dst = operands[0].register,
                             .src = operands[1].memory.base,
-                            .off = @intCast(operands[1].memory.offset),
+                            .off = operands[1].memory.offset,
                             .imm = 0,
+                        },
+                        .store_reg => .{
+                            .opcode = @enumFromInt(bind.opc),
+                            .dst = operands[0].memory.base,
+                            .src = operands[1].register,
+                            .off = operands[0].memory.offset,
+                            .imm = 0,
+                        },
+                        .store_imm => .{
+                            .opcode = @enumFromInt(bind.opc),
+                            .dst = operands[0].memory.base,
+                            .src = .r0,
+                            .off = operands[0].memory.offset,
+                            .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
                         },
                         .endian => |bits| .{
                             .opcode = @enumFromInt(bind.opc),
@@ -236,7 +250,7 @@ const Assembler = struct {
                     if (left_bracket == op.len) @panic("no right bracket");
 
                     var base = op[left_bracket + 1 .. right_bracket];
-                    var offset: i64 = 0;
+                    var offset: i16 = 0;
 
                     // does it have a + or -
                     // this can appear in [r1+10] for example
@@ -244,7 +258,7 @@ const Assembler = struct {
                     if (maybe_symbol_offset) |symbol_offset| {
                         const symbol = base[symbol_offset..];
                         base = base[0..symbol_offset];
-                        offset = try std.fmt.parseInt(i64, symbol, 0);
+                        offset = try std.fmt.parseInt(i16, symbol, 0);
                     }
 
                     // otherwise it's just an address register argument

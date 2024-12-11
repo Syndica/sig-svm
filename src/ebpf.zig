@@ -320,6 +320,16 @@ pub const Instruction = packed struct(u64) {
         .{ "ldxw"  , .{ .inst = .load_reg,         .opc = mem | ldx | w   } },
         .{ "ldxdw" , .{ .inst = .load_reg,         .opc = mem | ldx | dw  } },
 
+        .{ "stb"  , .{ .inst = .store_imm,        .opc = mem | st | b   } },
+        .{ "sth"  , .{ .inst = .store_imm,        .opc = mem | st | h   } },
+        .{ "stw"  , .{ .inst = .store_imm,        .opc = mem | st | w   } },
+        .{ "stdw" , .{ .inst = .store_imm,        .opc = mem | st | dw  } },
+
+        .{ "stxb"  , .{ .inst = .store_reg,        .opc = mem | stx | b   } },
+        .{ "stxh"  , .{ .inst = .store_reg,        .opc = mem | stx | h   } },
+        .{ "stxw"  , .{ .inst = .store_reg,        .opc = mem | stx | w   } },
+        .{ "stxdw" , .{ .inst = .store_reg,        .opc = mem | stx | dw  } },
+
         .{ "be16", .{ .inst = .{.endian = 16 }, .opc = alu32_load | x | end } },
         .{ "be32", .{ .inst = .{.endian = 32 }, .opc = alu32_load | x | end } },
         .{ "be64", .{ .inst = .{.endian = 64 }, .opc = alu32_load | x | end } },

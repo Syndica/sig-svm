@@ -158,19 +158,53 @@ fn step(vm: *Vm) !bool {
 
         .ld_b_reg => {
             const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.memop(u8, .load, vm_addr));
+            registers.set(inst.dst, try vm.load(u8, vm_addr));
         },
         .ld_h_reg => {
             const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.memop(u16, .load, vm_addr));
+            registers.set(inst.dst, try vm.load(u16, vm_addr));
         },
         .ld_w_reg => {
             const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.memop(u32, .load, vm_addr));
+            registers.set(inst.dst, try vm.load(u32, vm_addr));
         },
         .ld_dw_reg => {
             const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.memop(u64, .load, vm_addr));
+            registers.set(inst.dst, try vm.load(u64, vm_addr));
+        },
+
+        .st_b_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u8, vm_addr, @truncate(registers.get(inst.src)));
+        },
+        .st_h_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u16, vm_addr, @truncate(registers.get(inst.src)));
+        },
+        .st_w_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u32, vm_addr, @truncate(registers.get(inst.src)));
+        },
+        .st_dw_reg => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u64, vm_addr, registers.get(inst.src));
+        },
+
+        .st_b_imm => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u8, vm_addr, @truncate(inst.imm));
+        },
+        .st_h_imm => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u16, vm_addr, @truncate(inst.imm));
+        },
+        .st_w_imm => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u32, vm_addr, @truncate(inst.imm));
+        },
+        .st_dw_imm => {
+            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.dst))) +% inst.off);
+            try vm.store(u64, vm_addr, inst.imm);
         },
 
         .be => registers.set(inst.dst, switch (inst.imm) {
@@ -215,7 +249,12 @@ fn step(vm: *Vm) !bool {
     return true;
 }
 
-fn memop(vm: *Vm, T: type, comptime access: memory.AccessType, vm_addr: u64) !T {
-    const slice = try vm.memory_map.vmap(access, vm_addr, @sizeOf(T));
+fn load(vm: *Vm, T: type, vm_addr: u64) !T {
+    const slice = try vm.memory_map.vmap(.load, vm_addr, @sizeOf(T));
     return std.mem.readInt(T, slice[0..@sizeOf(T)], .little);
+}
+
+fn store(vm: *Vm, T: type, vm_addr: u64, value: T) !void {
+    const slice = try vm.memory_map.vmap(.store, vm_addr, @sizeOf(T));
+    slice[0..@sizeOf(T)].* = @bitCast(value);
 }
