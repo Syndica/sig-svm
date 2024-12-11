@@ -11,27 +11,33 @@ comptime {
 
 const expectEqual = std.testing.expectEqual;
 
-test "mov" {
+test "basicmov" {
     try testAsm(
         \\entrypoint:
-        \\  mov r1, 16
+        \\  mov r1, 1
         \\  mov r0, r1
         \\  exit
-    , 16);
+    , 1);
+}
 
+test "mov32 imm large" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, -1
         \\  exit
     , 0xffffffff);
+}
 
+test "mov large" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r1, -1
         \\  mov32 r0, r1
         \\  exit
     , 0xffffffff);
+}
 
+test "bounce" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 1
@@ -44,7 +50,7 @@ test "mov" {
     , 1);
 }
 
-test "add" {
+test "add32" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -55,14 +61,71 @@ test "add" {
     , 3);
 }
 
-test "mul" {
+test "alu32 logic" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov32 r1, 1
+        \\  mov32 r2, 2
+        \\  mov32 r3, 3
+        \\  mov32 r4, 4
+        \\  mov32 r5, 5
+        \\  mov32 r6, 6
+        \\  mov32 r7, 7
+        \\  mov32 r8, 8
+        \\  or32 r0, r5
+        \\  or32 r0, 0xa0
+        \\  and32 r0, 0xa3
+        \\  mov32 r9, 0x91
+        \\  and32 r0, r9
+        \\  lsh32 r0, 22
+        \\  lsh32 r0, r8
+        \\  rsh32 r0, 19
+        \\  rsh32 r0, r7
+        \\  xor32 r0, 0x03
+        \\  xor32 r0, r2
+        \\  exit
+    , 0x11);
+}
+test "alu64 logic" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0
+        \\  mov r1, 1
+        \\  mov r2, 2
+        \\  mov r3, 3
+        \\  mov r4, 4
+        \\  mov r5, 5
+        \\  mov r6, 6
+        \\  mov r7, 7
+        \\  mov r8, 8
+        \\  or r0, r5
+        \\  or r0, 0xa0
+        \\  and r0, 0xa3
+        \\  mov r9, 0x91
+        \\  and r0, r9
+        \\  lsh r0, 32
+        \\  lsh r0, 22
+        \\  lsh r0, r8
+        \\  rsh r0, 32
+        \\  rsh r0, 19
+        \\  rsh r0, r7
+        \\  xor r0, 0x03
+        \\  xor r0, r2
+        \\  exit
+    , 0x11);
+}
+
+test "mul32 imm" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 3
         \\  mul32 r0, 4
         \\  exit
     , 12);
+}
 
+test "mul32 reg" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 3
@@ -70,7 +133,9 @@ test "mul" {
         \\  mul32 r0, r1
         \\  exit
     , 12);
+}
 
+test "mul32 overflow" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0x40000001
@@ -78,14 +143,18 @@ test "mul" {
         \\  mul32 r0, r1
         \\  exit
     , 4);
+}
 
+test "mul64 imm" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0x40000001
         \\  mul r0, 4
         \\  exit
     , 0x100000004);
+}
 
+test "mul64 reg" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0x40000001
@@ -93,13 +162,141 @@ test "mul" {
         \\  mul r0, r1
         \\  exit
     , 0x100000004);
+}
 
+test "mul32 negative" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, -1
         \\  mul32 r0, 4
         \\  exit
     , 0xFFFFFFFFFFFFFFFC);
+}
+
+test "div32 imm" {
+    try testAsm(
+        \\entrypoint:
+        \\  lddw r0, 0x10000000c
+        \\  div32 r0, 4
+        \\  exit
+    , 0x3);
+}
+
+test "div32 reg" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 12
+        \\  lddw r1, 0x100000004
+        \\  div32 r0, r1
+        \\  exit
+    , 0x3);
+}
+
+test "div32 small" {
+    try testAsm(
+        \\entrypoint:
+        \\  lddw r0, 0x10000000c
+        \\  mov r1, 4
+        \\  div32 r0, r1
+        \\  exit
+    , 0x3);
+}
+
+test "div64 imm" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0xc
+        \\  lsh r0, 32
+        \\  div r0, 4
+        \\  exit
+    , 0x300000000);
+}
+
+test "div64 reg" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0xc
+        \\  lsh r0, 32
+        \\  mov r1, 4
+        \\  div r0, r1
+        \\  exit
+    , 0x300000000);
+}
+
+test "div division by zero" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  div r0, r1
+        \\  exit
+    , error.DivisionByZero);
+}
+
+test "div32 division by zero" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  div32 r0, r1
+        \\  exit
+    , error.DivisionByZero);
+}
+
+test "neg32" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 2
+        \\  neg32 r0
+        \\  exit
+    , 0xFFFFFFFE);
+}
+
+test "neg64" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 2
+        \\  neg r0
+        \\  exit
+    , 0xFFFFFFFFFFFFFFFE);
+}
+
+test "sub32 imm" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 3
+        \\  sub32 r0, 1
+        \\  exit
+    , 2);
+}
+
+test "sub32 reg" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 4
+        \\  mov32 r1, 2
+        \\  sub32 r0, r1
+        \\  exit
+    , 2);
+}
+
+test "sub64 imm" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 3
+        \\  sub r0, 1
+        \\  exit
+    , 2);
+}
+
+test "sub64 reg" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 4
+        \\  mov r1, 2
+        \\  sub r0, r1
+        \\  exit
+    , 2);
 }
 
 test "lddw" {
@@ -130,149 +327,7 @@ test "lddw" {
     , 0x2);
 }
 
-test "div" {
-    try testAsm(
-        \\entrypoint:
-        \\  mov r0, 12
-        \\  lddw r1, 0x100000004
-        \\  div32 r0, r1
-        \\  exit
-    , 0x3);
-
-    try testAsm(
-        \\entrypoint:
-        \\  lddw r0, 0x10000000c
-        \\  div32 r0, 4
-        \\  exit
-    , 0x3);
-
-    try testAsm(
-        \\entrypoint:
-        \\  lddw r0, 0x10000000c
-        \\  mov r1, 4
-        \\  div32 r0, r1
-        \\  exit
-    , 0x3);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov r0, 0xc
-        \\  lsh r0, 32
-        \\  div r0, 4
-        \\  exit
-    , 0x300000000);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov r0, 0xc
-        \\  lsh r0, 32
-        \\  mov r1, 4
-        \\  div r0, r1
-        \\  exit
-    , 0x300000000);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov32 r0, 1
-        \\  mov32 r1, 0
-        \\  div r0, r1
-        \\  exit
-    , error.DivisionByZero);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov32 r0, 1
-        \\  mov32 r1, 0
-        \\  div32 r0, r1
-        \\  exit
-    , error.DivisionByZero);
-}
-
-test "neg" {
-    try testAsm(
-        \\entrypoint:
-        \\  mov32 r0, 2
-        \\  neg32 r0
-        \\  exit
-    , 0xFFFFFFFE);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov r0, 2
-        \\  neg r0
-        \\  exit
-    , 0xFFFFFFFFFFFFFFFE);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov32 r0, 3
-        \\  sub32 r0, 1
-        \\  exit
-    , 2);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov r0, 3
-        \\  sub r0, 1
-        \\  exit
-    , 2);
-}
-
-test "alu" {
-    try testAsm(
-        \\entrypoint:
-        \\  mov32 r0, 0
-        \\  mov32 r1, 1
-        \\  mov32 r2, 2
-        \\  mov32 r3, 3
-        \\  mov32 r4, 4
-        \\  mov32 r5, 5
-        \\  mov32 r6, 6
-        \\  mov32 r7, 7
-        \\  mov32 r8, 8
-        \\  or32 r0, r5
-        \\  or32 r0, 0xa0
-        \\  and32 r0, 0xa3
-        \\  mov32 r9, 0x91
-        \\  and32 r0, r9
-        \\  lsh32 r0, 22
-        \\  lsh32 r0, r8
-        \\  rsh32 r0, 19
-        \\  rsh32 r0, r7
-        \\  xor32 r0, 0x03
-        \\  xor32 r0, r2
-        \\  exit
-    , 0x11);
-
-    try testAsm(
-        \\entrypoint:
-        \\  mov r0, 0
-        \\  mov r1, 1
-        \\  mov r2, 2
-        \\  mov r3, 3
-        \\  mov r4, 4
-        \\  mov r5, 5
-        \\  mov r6, 6
-        \\  mov r7, 7
-        \\  mov r8, 8
-        \\  or r0, r5
-        \\  or r0, 0xa0
-        \\  and r0, 0xa3
-        \\  mov r9, 0x91
-        \\  and r0, r9
-        \\  lsh r0, 32
-        \\  lsh r0, 22
-        \\  lsh r0, r8
-        \\  rsh r0, 32
-        \\  rsh r0, 19
-        \\  rsh r0, r7
-        \\  xor r0, 0x03
-        \\  xor r0, r2
-        \\  exit
-    , 0x11);
-}
-
-test "shift" {
+test "lsh64 reg" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0x1
@@ -280,7 +335,9 @@ test "shift" {
         \\  lsh r0, r7
         \\  exit
     , 0x10);
+}
 
+test "rhs32 imm" {
     try testAsm(
         \\entrypoint:
         \\  xor r0, r0
@@ -288,7 +345,9 @@ test "shift" {
         \\  rsh32 r0, 8
         \\  exit
     , 0x00ffffff);
+}
 
+test "rhs64 reg" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0x10
@@ -298,7 +357,7 @@ test "shift" {
     , 0x1);
 }
 
-test "be" {
+test "be16" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxh r0, [r1]
@@ -308,7 +367,9 @@ test "be" {
         &.{ 0x11, 0x22 },
         0x1122,
     );
+}
 
+test "be16 high" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxdw r0, [r1]
@@ -318,7 +379,9 @@ test "be" {
         &.{ 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
         0x1122,
     );
+}
 
+test "be32" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxw r0, [r1]
@@ -328,7 +391,9 @@ test "be" {
         &.{ 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
         0x11223344,
     );
+}
 
+test "be32 high" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxdw r0, [r1]
@@ -338,7 +403,9 @@ test "be" {
         &.{ 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
         0x11223344,
     );
+}
 
+test "be64" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxdw r0, [r1]
@@ -350,7 +417,7 @@ test "be" {
     );
 }
 
-test "load" {
+test "ldxb" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxb r0, [r1+2]
@@ -359,7 +426,9 @@ test "load" {
         &.{ 0xaa, 0xbb, 0x11, 0xcc, 0xdd },
         0x11,
     );
+}
 
+test "ldxh" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxh r0, [r1+2]
@@ -368,7 +437,9 @@ test "load" {
         &.{ 0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd },
         0x2211,
     );
+}
 
+test "ldxw" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxw r0, [r1+2]
@@ -377,7 +448,22 @@ test "load" {
         &.{ 0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0xcc, 0xdd },
         0x44332211,
     );
+}
 
+test "ldxw same reg" {
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, r1
+        \\  sth [r0], 0x1234
+        \\  ldxh r0, [r0]
+        \\  exit
+    ,
+        &.{ 0xff, 0xff },
+        0x1234,
+    );
+}
+
+test "ldxdw" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxdw r0, [r1+2]
@@ -389,7 +475,9 @@ test "load" {
         },
         0x8877665544332211,
     );
+}
 
+test "ldxdw oob" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxdw r0, [r1+6]
@@ -401,7 +489,9 @@ test "load" {
         },
         error.InvalidVirtualAddress,
     );
+}
 
+test "ldxdw oom" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  ldxdw r0, [r1+6]
@@ -410,7 +500,9 @@ test "load" {
         &.{},
         error.AccessViolation,
     );
+}
 
+test "ldxb all" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov r0, r1
@@ -448,6 +540,62 @@ test "load" {
         &.{
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
             0x07, 0x08, 0x09,
+        },
+        0x9876543210,
+    );
+}
+
+test "ldxh all" {
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\  mov r0, r1
+        \\  ldxh r9, [r0+0]
+        \\  be16 r9
+        \\  lsh r9, 0
+        \\  ldxh r8, [r0+2]
+        \\  be16 r8
+        \\  lsh r8, 4
+        \\  ldxh r7, [r0+4]
+        \\  be16 r7
+        \\  lsh r7, 8
+        \\  ldxh r6, [r0+6]
+        \\  be16 r6
+        \\  lsh r6, 12
+        \\  ldxh r5, [r0+8]
+        \\  be16 r5
+        \\  lsh r5, 16
+        \\  ldxh r4, [r0+10]
+        \\  be16 r4
+        \\  lsh r4, 20
+        \\  ldxh r3, [r0+12]
+        \\  be16 r3
+        \\  lsh r3, 24
+        \\  ldxh r2, [r0+14]
+        \\  be16 r2
+        \\  lsh r2, 28
+        \\  ldxh r1, [r0+16]
+        \\  be16 r1
+        \\  lsh r1, 32
+        \\  ldxh r0, [r0+18]
+        \\  be16 r0
+        \\  lsh r0, 36
+        \\  or r0, r1
+        \\  or r0, r2
+        \\  or r0, r3
+        \\  or r0, r4
+        \\  or r0, r5
+        \\  or r0, r6
+        \\  or r0, r7
+        \\  or r0, r8
+        \\  or r0, r9
+        \\  exit
+    ,
+        &.{
+            0x00, 0x00, 0x00, 0x01,
+            0x00, 0x02, 0x00, 0x03,
+            0x00, 0x04, 0x00, 0x05,
+            0x00, 0x06, 0x00, 0x07,
+            0x00, 0x08, 0x00, 0x09,
         },
         0x9876543210,
     );
@@ -493,7 +641,9 @@ test "load" {
         },
         0x3FF,
     );
+}
 
+test "ldxw all" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov r0, r1
@@ -539,7 +689,7 @@ test "load" {
     );
 }
 
-test "store" {
+test "stb" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  stb [r1+2], 0x11
@@ -549,17 +699,39 @@ test "store" {
         &.{ 0xaa, 0xbb, 0xff, 0xcc, 0xdd },
         0x11,
     );
+}
 
+test "sth" {
+    try testAsmWithMemory(
+        \\entrypoint:
+        \\ sth [r1+2], 0x2211
+        \\ ldxh r0, [r1+2]
+        \\ exit
+    ,
+        &.{
+            0xaa, 0xbb, 0xff, 0xff,
+            0xff, 0xff, 0xcc, 0xdd,
+        },
+        0x2211,
+    );
+}
+
+test "stw" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  stw [r1+2], 0x44332211
         \\  ldxw r0, [r1+2]
         \\  exit
     ,
-        &.{ 0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd },
+        &.{
+            0xaa, 0xbb, 0xff, 0xff,
+            0xff, 0xff, 0xcc, 0xdd,
+        },
         0x44332211,
     );
+}
 
+test "stdw" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  stdw [r1+2], 0x44332211
@@ -572,7 +744,9 @@ test "store" {
         },
         0x44332211,
     );
+}
 
+test "stxb" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov32 r2, 0x11
@@ -583,7 +757,9 @@ test "store" {
         &.{ 0xaa, 0xbb, 0xff, 0xcc, 0xdd },
         0x11,
     );
+}
 
+test "stxh" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov32 r2, 0x2211
@@ -594,7 +770,9 @@ test "store" {
         &.{ 0xaa, 0xbb, 0xff, 0xff, 0xcc, 0xdd },
         0x2211,
     );
+}
 
+test "stxw" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov32 r2, 0x44332211
@@ -605,7 +783,9 @@ test "store" {
         &.{ 0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd },
         0x44332211,
     );
+}
 
+test "stxdw" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov r2, -2005440939
@@ -621,7 +801,9 @@ test "store" {
         },
         0x8877665544332211,
     );
+}
 
+test "stxb all" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov r0, 0xf0
@@ -662,7 +844,9 @@ test "store" {
         &.{ 0xff, 0xff },
         0xf1f9,
     );
+}
 
+test "stxb chain" {
     try testAsmWithMemory(
         \\entrypoint:
         \\  mov r0, r1
@@ -695,14 +879,34 @@ test "store" {
     );
 }
 
-test "branch" {
+test "exit without value" {
     try testAsm(
         \\entrypoint:
         \\  exit
     ,
         0x0,
     );
+}
 
+test "exit" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0
+        \\  exit
+    , 0x0);
+}
+
+test "early exit" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 3
+        \\  exit
+        \\  mov r0, 4
+        \\  exit
+    , 3);
+}
+
+test "ja" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 1
@@ -712,7 +916,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jeq imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -726,7 +932,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jeq reg" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -741,7 +949,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jge imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -755,7 +965,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jge reg" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -770,7 +982,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jle imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -785,7 +999,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jle reg" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0
@@ -802,7 +1018,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jgt imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -816,7 +1034,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jgt reg" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0
@@ -832,7 +1052,8 @@ test "branch" {
     ,
         0x1,
     );
-
+}
+test "jlt imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -846,7 +1067,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jlt reg" {
     try testAsm(
         \\entrypoint:
         \\  mov r0, 0
@@ -862,7 +1085,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jne imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -876,7 +1101,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jne reg" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -891,7 +1118,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jset imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -905,7 +1134,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jset reg" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -920,7 +1151,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jsge imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -935,7 +1168,45 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jsge reg" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -2
+        \\  mov r2, -1
+        \\  mov32 r3, 0
+        \\  jsge r1, r2, +5
+        \\  jsge r1, r3, +4
+        \\  mov32 r0, 1
+        \\  mov  r1, r2
+        \\  jsge r1, r2, +1
+        \\  mov32 r0, 2
+        \\ exit
+    ,
+        0x1,
+    );
+}
+
+test "jsle imm" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0
+        \\  mov r1, -2
+        \\  jsle r1, -3, +1
+        \\  jsle r1, -1, +1
+        \\  exit
+        \\  mov32 r0, 1
+        \\  jsle r1, -2, +1
+        \\  mov32 r0, 2
+        \\  exit
+    ,
+        0x1,
+    );
+}
+
+test "jsle reg" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -953,7 +1224,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jsgt imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -967,7 +1240,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jsgt reg" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -982,7 +1257,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jslt imm" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
@@ -996,7 +1273,9 @@ test "branch" {
     ,
         0x1,
     );
+}
 
+test "jslt reg" {
     try testAsm(
         \\entrypoint:
         \\  mov32 r0, 0
