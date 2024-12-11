@@ -169,8 +169,6 @@ pub const Instruction = packed struct(u64) {
         arsh64_imm = alu64_store | k | arsh,
         /// bpf opcode: `arsh64 dst, src` /// `dst >>= src (arithmetic)`.
         arsh64_reg = alu64_store | x | arsh,
-        /// bpf opcode: `hor64 dst, imm` /// `dst |= imm << 32`.
-        hor64_imm = alu64_store | k | hor,
 
         /// bpf opcode: `ja +off` /// `pc += off`.
         ja = jmp | 0x0,
@@ -285,6 +283,14 @@ pub const Instruction = packed struct(u64) {
         .{ "and"  , .{ .inst = .alu_binary, .opc = @"and" | alu64_store } },
         .{ "and64", .{ .inst = .alu_binary, .opc = @"and" | alu64_store } },
         .{ "and32", .{ .inst = .alu_binary, .opc = @"and" | alu32_load  } },
+
+        .{ "mod"  , .{ .inst = .alu_binary, .opc = mod | alu64_store } },
+        .{ "mod64", .{ .inst = .alu_binary, .opc = mod | alu64_store } },
+        .{ "mod32", .{ .inst = .alu_binary, .opc = mod | alu32_load  } },
+
+        .{ "arsh"  , .{ .inst = .alu_binary, .opc = arsh | alu64_store } },
+        .{ "arsh64", .{ .inst = .alu_binary, .opc = arsh | alu64_store } },
+        .{ "arsh32", .{ .inst = .alu_binary, .opc = arsh | alu32_load  } },
 
         .{ "lsh"  , .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
         .{ "lsh64", .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
@@ -448,8 +454,6 @@ pub const Instruction = packed struct(u64) {
     pub const arsh: u8 = 0xc0;
     /// alu/alu64 operation code: endianness conversion.
     pub const end: u8 = 0xd0;
-    /// alu/alu64 operation code: high or.
-    pub const hor: u8 = 0xf0;
 
     pub const Register = enum(u4) {
         /// Return Value

@@ -299,6 +299,110 @@ test "sub64 reg" {
     , 2);
 }
 
+test "mod32" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 5748
+        \\  mod32 r0, 92
+        \\  mov32 r1, 13
+        \\  mod32 r0, r1
+        \\  exit
+    ,
+        0x5,
+    );
+}
+
+test "mod32 overflow" {
+    try testAsm(
+        \\entrypoint:
+        \\  lddw r0, 0x100000003
+        \\  mod32 r0, 3
+        \\  exit
+    ,
+        0x0,
+    );
+}
+
+test "mod32 all" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, -1316649930
+        \\  lsh r0, 32
+        \\  or r0, 0x100dc5c8
+        \\  mov32 r1, 0xdde263e
+        \\  lsh r1, 32
+        \\  or r1, 0x3cbef7f3
+        \\  mod r0, r1
+        \\  mod r0, 0x658f1778
+        \\  exit
+    ,
+        0x30ba5a04,
+    );
+}
+
+test "mod64 divide by zero" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  mod r0, r1
+        \\  exit
+    ,
+        error.DivisionByZero,
+    );
+}
+
+test "mod32 divide by zero" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 1
+        \\  mov32 r1, 0
+        \\  mod32 r0, r1
+        \\  exit
+    ,
+        error.DivisionByZero,
+    );
+}
+
+test "arsh32 imm" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0xf8
+        \\  lsh32 r0, 28
+        \\  arsh32 r0, 16
+        \\  exit
+    ,
+        0xffff8000,
+    );
+}
+
+test "arsh32 reg" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 0xf8
+        \\  mov32 r1, 16
+        \\  lsh32 r0, 28
+        \\  arsh32 r0, r1
+        \\  exit
+    ,
+        0xffff8000,
+    );
+}
+
+test "arsh64" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov32 r0, 1
+        \\  lsh r0, 63
+        \\  arsh r0, 55
+        \\  mov32 r1, 5
+        \\  arsh r0, r1
+        \\  exit
+    ,
+        0xfffffffffffffff8,
+    );
+}
+
 test "lddw" {
     try testAsm(
         \\entrypoint:
