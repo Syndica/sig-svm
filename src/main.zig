@@ -34,11 +34,17 @@ pub fn main() !void {
     const input_file = try std.fs.cwd().openFile(input_path.?, .{});
     defer input_file.close();
 
-    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
-    defer allocator.free(bytes);
+    // const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    // defer allocator.free(bytes);
 
-    var executable = try Executable.fromAsm(allocator, bytes);
+    var elf = try Elf.parse(allocator, input_file);
+    defer elf.deinit(allocator);
+
+    var executable = try Executable.fromElf(allocator, &elf);
     defer executable.deinit(allocator);
+
+    // var executable = try Executable.fromAsm(allocator, bytes);
+    // defer executable.deinit(allocator);
 
     const input_mem = try allocator.alloc(u8, 100);
     defer allocator.free(input_mem);

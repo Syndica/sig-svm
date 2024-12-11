@@ -2,71 +2,158 @@
 
 const std = @import("std");
 const ebpf = @import("ebpf.zig");
+const memory = @import("memory.zig");
+const Elf = @This();
 
 const elf = std.elf;
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
-const Input = @This();
-
-handle: std.fs.File,
+bytes: []u8,
 header: elf.Elf64_Ehdr,
-shdrs: std.ArrayListUnmanaged(elf.Elf64_Shdr) = .{},
-strtab: std.ArrayListUnmanaged(u8) = .{},
+shdrs: []align(1) const elf.Elf64_Shdr,
+phdrs: []align(1) const elf.Elf64_Phdr,
+strtab: []const u8,
+
+dynamic_table: [elf.DT_NUM]elf.Elf64_Xword,
+dynamic_relocations_table: []align(1) const elf.Elf64_Rel,
+dynamic_symbol_table: []align(1) const elf.Elf64_Sym,
+
 entry_pc: u64,
 version: ebpf.SBPFVersion,
 
-pub fn parse(allocator: Allocator, input_file: std.fs.File) !Input {
-    const header_buffer = try preadAllAlloc(allocator, input_file, 0, @sizeOf(elf.Elf64_Ehdr));
-    defer allocator.free(header_buffer);
+pub fn parse(bytes: []u8) !Elf {
+    const header_buffer = bytes[0..@sizeOf(elf.Elf64_Ehdr)];
 
-    var input: Input = .{
+    var input: Elf = .{
+        .bytes = bytes,
         .header = @as(*align(1) const elf.Elf64_Ehdr, @ptrCast(header_buffer)).*,
-        .handle = input_file,
-        .entry_pc = undefined,
+        .entry_pc = 0,
         .version = .reserved,
+        .shdrs = &.{},
+        .strtab = &.{},
+        .phdrs = &.{},
+        .dynamic_table = .{0} ** elf.DT_NUM,
+        .dynamic_relocations_table = &.{},
+        .dynamic_symbol_table = &.{},
     };
 
-    // section header offset
-    const shoff = input.header.e_shoff;
-    // number of section headers
-    const shnum = input.header.e_shnum;
-    // total size of the section headers
-    const shsize = shnum * @sizeOf(elf.Elf64_Shdr);
+    try input.parseHeader();
+    try input.parseDynamic();
 
-    const shdrs_buffer = try preadAllAlloc(allocator, input_file, shoff, shsize);
-    defer allocator.free(shdrs_buffer);
-    const shdrs = @as([*]align(1) const elf.Elf64_Shdr, @ptrCast(shdrs_buffer.ptr))[0..shnum];
-    try input.shdrs.appendUnalignedSlice(allocator, shdrs);
+    try input.validate();
+    try input.relocate();
 
-    // read the string table
-    const shstrtab = try input.preadShdrContentsAlloc(allocator, input.header.e_shstrndx);
-    defer allocator.free(shstrtab);
-    try input.strtab.appendSlice(allocator, shstrtab);
+    return input;
+}
+
+fn parseHeader(input: *Elf) !void {
+    {
+        const shoff = input.header.e_shoff;
+        const shnum = input.header.e_shnum;
+        const shsize = shnum * @sizeOf(elf.Elf64_Shdr);
+        input.shdrs = std.mem.bytesAsSlice(elf.Elf64_Shdr, input.bytes[shoff..][0..shsize]);
+    }
+
+    {
+        const phoff = input.header.e_phoff;
+        const phnum = input.header.e_phnum;
+        const phsize = phnum * @sizeOf(elf.Elf64_Phdr);
+        input.phdrs = std.mem.bytesAsSlice(elf.Elf64_Phdr, input.bytes[phoff..][0..phsize]);
+    }
+
+    input.strtab = input.shdrSlice(input.header.e_shstrndx);
 
     const text_section = input.getShdrByName(".text").?;
     const offset = input.header.e_entry -| text_section.sh_addr;
     input.entry_pc = try std.math.divExact(u64, offset, 8);
 
-    // TODO: what value should be used for V1? this leads us vulnerable to
-    // having corrupt values pass.
     const sbpf_version: ebpf.SBPFVersion = if (input.header.e_flags == ebpf.EF_SBPF_V2)
         .v2
     else
         .v1;
     if (sbpf_version != .v1) std.debug.panic("found sbpf version: {s}, support it!", .{@tagName(sbpf_version)});
     input.version = sbpf_version;
-
-    return input;
 }
 
-pub fn deinit(input: *Input, allocator: Allocator) void {
-    input.shdrs.deinit(allocator);
-    input.strtab.deinit(allocator);
+fn parseDynamic(
+    input: *Elf,
+) !void {
+    var dynamic_table: ?[]align(1) const elf.Elf64_Dyn = &.{};
+
+    if (input.getPhdrIndexByType(elf.PT_DYNAMIC)) |index| {
+        dynamic_table = std.mem.bytesAsSlice(elf.Elf64_Dyn, input.phdrSlice(index));
+    }
+
+    // if PT_DYNAMIC doesn't exist or is invalid, fallback to parsing
+    // SHT_DYNAMIC
+    if (dynamic_table == null) {
+        @panic("TODO: parse SHT_DYNAMIC");
+    }
+
+    // if neither PT_DYNAMIC nor SHT_DYNAMIC exist, this is a state file.
+    if (dynamic_table == null) return;
+
+    for (dynamic_table.?) |dyn| {
+        if (dyn.d_tag == elf.DT_NULL) break;
+        if (dyn.d_tag >= elf.DT_NUM) continue; // we don't parse any reversed tags
+
+        input.dynamic_table[@as(u64, @bitCast(dyn.d_tag))] = dyn.d_val;
+    }
+
+    try input.parseDynamicRelocations();
+    try input.parseDynamicSymbolTable();
 }
 
-/// Validates the Input. Returns errors for issues encountered.
-pub fn validate(input: *Input) !void {
+fn parseDynamicRelocations(input: *Elf) !void {
+    const vaddr = input.dynamic_table[elf.DT_REL];
+    if (vaddr == 0) return;
+
+    if (input.dynamic_table[elf.DT_RELENT] != @sizeOf(elf.Elf64_Rel)) {
+        return error.InvalidDynamicSectionTable;
+    }
+
+    const size = input.dynamic_table[elf.DT_RELSZ];
+    if (size == 0) return error.InvalidDynamicSectionTable;
+
+    var offset: u64 = 0;
+    for (input.phdrs) |phdr| {
+        const p_vaddr = phdr.p_vaddr;
+        const p_memsz = phdr.p_memsz;
+
+        if (vaddr >= p_vaddr and vaddr < p_vaddr + p_memsz) {
+            offset = vaddr - p_vaddr + phdr.p_offset;
+            break;
+        }
+    } else @panic("invalid dynamic section, investigate special case");
+
+    input.dynamic_relocations_table = std.mem.bytesAsSlice(
+        elf.Elf64_Rel,
+        input.bytes[offset..][0..size],
+    );
+}
+
+fn parseDynamicSymbolTable(input: *Elf) !void {
+    const vaddr = input.dynamic_table[elf.DT_SYMTAB];
+    if (vaddr == 0) return;
+
+    for (input.shdrs, 0..) |shdr, i| {
+        if (shdr.sh_addr != vaddr) continue;
+
+        if (shdr.sh_type != elf.SHT_SYMTAB and shdr.sh_type != elf.SHT_DYNSYM) {
+            return error.InvalidSectionHeader;
+        }
+
+        input.dynamic_symbol_table = std.mem.bytesAsSlice(
+            elf.Elf64_Sym,
+            input.shdrSlice(@intCast(i)),
+        );
+        return;
+    } else return error.InvalidDynamicSectionTable;
+}
+
+/// Validates the Elf. Returns errors for issues encountered.
+fn validate(input: *Elf) !void {
     const header = input.header;
 
     // ensure 64-bit class
@@ -93,7 +180,7 @@ pub fn validate(input: *Input) !void {
     // ensure there is only one ".text" section
     {
         var count: u32 = 0;
-        for (input.shdrs.items) |shdr| {
+        for (input.shdrs) |shdr| {
             if (std.mem.eql(u8, input.getString(shdr.sh_name), ".text")) {
                 count += 1;
             }
@@ -106,7 +193,7 @@ pub fn validate(input: *Input) !void {
     // writable sections are not supported in our usecase
     // that will include ".bss", and ".data" sections that are writable
     // ".data.rel" is allowed though.
-    for (input.shdrs.items) |shdr| {
+    for (input.shdrs) |shdr| {
         const name = input.getString(shdr.sh_name);
         if (std.mem.startsWith(u8, name, ".bss")) {
             return error.WritableSectionsNotSupported;
@@ -120,11 +207,11 @@ pub fn validate(input: *Input) !void {
     }
 
     // ensure all of the section headers are within bounds
-    for (input.shdrs.items) |shdr| {
+    for (input.shdrs) |shdr| {
         const start = shdr.sh_offset;
         const end = try std.math.add(usize, start, shdr.sh_size);
 
-        const file_size = (try input.handle.stat()).size;
+        const file_size = input.bytes.len;
         if (start > file_size or end > file_size) return error.Oob;
     }
 
@@ -140,50 +227,90 @@ pub fn validate(input: *Input) !void {
     }
 }
 
-pub fn getInstructions(input: *const Input, allocator: std.mem.Allocator) ![]const ebpf.Instruction {
+fn relocate(input: *Elf) !void {
     const text_section_index = input.getShdrIndexByName(".text") orelse
         return error.ShdrNotFound;
-    const text_bytes: []align(@alignOf(ebpf.Instruction)) u8 =
-        @alignCast(try input.preadShdrContentsAlloc(allocator, text_section_index));
+    const text_section = input.shdrs[text_section_index];
+    _ = text_section;
+
+    for (input.dynamic_relocations_table) |reloc| {
+        if (input.version != .v1) @panic("TODO here");
+        const r_offset = reloc.r_offset;
+
+        switch (@as(elf.R_X86_64, @enumFromInt(reloc.r_type()))) {
+            .@"64" => {
+                // if the relocation is addressing an instruction inside of the
+                // text section, we'll need to offset it by the offset of the immediate
+                // field into the instruction.
+                // TODO: in V1 this is by default, but in V2 we check if the offset is inside of the
+                // section
+                const imm_offset = r_offset + 4;
+
+                const ref_addr = std.mem.readInt(u32, input.bytes[imm_offset..][0..4], .little);
+                const symbol = input.dynamic_symbol_table[reloc.r_sym()];
+
+                var addr = symbol.st_value +| ref_addr;
+                if (addr < memory.PROGRAM_START) {
+                    addr +|= memory.PROGRAM_START;
+                }
+
+                {
+                    const imm_low_offset = imm_offset;
+                    const imm_slice = input.bytes[imm_low_offset..][0..4];
+                    std.mem.writeInt(u32, imm_slice, @truncate(addr), .little);
+                }
+
+                {
+                    const imm_high_offset = imm_offset +| 8;
+                    const imm_slice = input.bytes[imm_high_offset..][0..4];
+                    std.mem.writeInt(u32, imm_slice, @intCast(addr >> 32), .little);
+                }
+            },
+            else => |t| std.debug.panic("TODO: handle relocation {s}", .{@tagName(t)}),
+        }
+    }
+}
+
+pub fn getInstructions(input: *const Elf) ![]align(1) const ebpf.Instruction {
+    const text_section_index = input.getShdrIndexByName(".text") orelse
+        return error.ShdrNotFound;
+    const text_bytes: []const u8 = input.shdrSlice(text_section_index);
     return std.mem.bytesAsSlice(ebpf.Instruction, text_bytes);
 }
 
 /// Allocates, reads, and returns the contents of a section header.
-fn preadShdrContentsAlloc(
-    self: *const Input,
-    allocator: Allocator,
+fn shdrSlice(
+    self: *const Elf,
     index: u32,
-) ![]u8 {
-    assert(index < self.shdrs.items.len);
-    const shdr = self.shdrs.items[index];
+) []const u8 {
+    assert(index < self.shdrs.len);
+    const shdr = self.shdrs[index];
     const sh_offset = shdr.sh_offset;
     const sh_size = shdr.sh_size;
-    return preadAllAlloc(allocator, self.handle, sh_offset, sh_size);
+    return self.bytes[sh_offset..][0..sh_size];
 }
 
-/// Allocates, reads, and returns the contents of the file at `file[offset..][0..size]`.
-fn preadAllAlloc(
-    allocator: Allocator,
-    handle: std.fs.File,
-    offset: u64,
-    size: u64,
-) ![]u8 {
-    const buffer = try allocator.alloc(u8, size);
-    errdefer allocator.free(buffer);
-    const amt = try handle.preadAll(buffer, offset);
-    if (amt != size) return error.InputOutput;
-    return buffer;
+/// Allocates, reads, and returns the contents of a program header.
+fn phdrSlice(
+    self: *const Elf,
+    index: u32,
+) []const u8 {
+    assert(index < self.shdrs.len);
+    const phdr = self.phdrs[index];
+    const p_offset = phdr.p_offset;
+    const p_filesz = phdr.p_filesz;
+    return self.bytes[p_offset..][0..p_filesz];
 }
 
 /// Returns the string for a given index into the string table.
-fn getString(self: *const Input, off: u32) [:0]const u8 {
-    assert(off < self.strtab.items.len);
-    const ptr: [*:0]const u8 = @ptrCast(self.strtab.items.ptr + off);
+fn getString(self: *const Elf, off: u32) [:0]const u8 {
+    assert(off < self.strtab.len);
+    const ptr: [*:0]const u8 = @ptrCast(self.strtab.ptr + off);
     return std.mem.sliceTo(ptr, 0);
 }
 
-fn getShdrIndexByName(self: *const Input, name: []const u8) ?u32 {
-    for (self.shdrs.items, 0..) |shdr, i| {
+fn getShdrIndexByName(self: *const Elf, name: []const u8) ?u32 {
+    for (self.shdrs, 0..) |shdr, i| {
         const shdr_name = self.getString(shdr.sh_name);
         if (std.mem.eql(u8, shdr_name, name)) {
             return @intCast(i);
@@ -192,7 +319,14 @@ fn getShdrIndexByName(self: *const Input, name: []const u8) ?u32 {
     return null;
 }
 
-fn getShdrByName(self: *const Input, name: []const u8) ?elf.Elf64_Shdr {
+fn getShdrByName(self: *const Elf, name: []const u8) ?elf.Elf64_Shdr {
     const index = self.getShdrIndexByName(name) orelse return null;
-    return self.shdrs.items[index];
+    return self.shdrs[index];
+}
+
+fn getPhdrIndexByType(self: *const Elf, p_type: elf.Elf64_Word) ?u32 {
+    for (self.phdrs, 0..) |phdr, i| {
+        if (phdr.p_type == p_type) return @intCast(i);
+    }
+    return null;
 }

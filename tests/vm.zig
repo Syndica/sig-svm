@@ -1,17 +1,17 @@
+//! Solana Virtual Machine runtime testing
+
 const std = @import("std");
-const Vm = @import("Vm.zig");
-const Executable = @import("Executable.zig");
-const memory = @import("memory.zig");
+const svm = @import("svm");
+
+const Vm = svm.Vm;
+const Executable = svm.Executable;
+const memory = svm.memory;
 const MemoryMap = memory.MemoryMap;
 const Region = memory.Region;
 
-comptime {
-    _ = &memory;
-}
-
 const expectEqual = std.testing.expectEqual;
 
-test "basicmov" {
+test "basic mov" {
     try testAsm(
         \\entrypoint:
         \\  mov r1, 1

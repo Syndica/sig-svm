@@ -3,15 +3,17 @@ const ebpf = @import("ebpf.zig");
 const Elf = @import("Elf.zig");
 const Executable = @This();
 
-instructions: []const ebpf.Instruction,
+instructions: []align(1) const ebpf.Instruction,
 version: ebpf.SBPFVersion,
 entry_pc: u64,
+from_elf: bool,
 
-pub fn fromElf(allocator: std.mem.Allocator, elf: *const Elf) !Executable {
+pub fn fromElf(elf: *const Elf) !Executable {
     return .{
-        .instructions = try elf.getInstructions(allocator),
+        .instructions = try elf.getInstructions(),
         .version = elf.version,
         .entry_pc = elf.entry_pc,
+        .from_elf = true,
     };
 }
 
@@ -21,7 +23,19 @@ pub fn fromAsm(allocator: std.mem.Allocator, source: []const u8) !Executable {
         .instructions = instructions,
         .version = .v1,
         .entry_pc = 0,
+        .from_elf = false,
     };
+}
+
+/// Only call `deinit` if the executable was created with `fromAsm`.
+/// We don't own the Elf file and cannot deinit the instructions for it.
+///
+/// We need to guarantee that the instructions are aligned to `ebpf.Instruction` rather
+/// than 1 like they would be if we created the executable from the Elf file. The GPA
+/// requires allocations and deallocations to be made with the same semantic alignment.
+pub fn deinit(exec: *Executable, allocator: std.mem.Allocator) void {
+    std.debug.assert(!exec.from_elf);
+    allocator.free(@as([]const ebpf.Instruction, @alignCast(exec.instructions)));
 }
 
 const Assembler = struct {
@@ -49,7 +63,7 @@ const Assembler = struct {
         };
     };
 
-    fn parse(allocator: std.mem.Allocator, source: []const u8) ![]const ebpf.Instruction {
+    fn parse(allocator: std.mem.Allocator, source: []const u8) ![]align(1) const ebpf.Instruction {
         var assembler: Assembler = .{ .source = source };
         const statements = try assembler.tokenize(allocator);
         defer {
@@ -97,7 +111,7 @@ const Assembler = struct {
                             break :inst if (is_immediate) .{
                                 .opcode = @enumFromInt(bind.opc | ebpf.Instruction.k),
                                 .dst = operands[0].register,
-                                .src = .r0, // unused
+                                .src = .r0,
                                 .off = 0,
                                 .imm = @bitCast(@as(i32, @intCast(operands[1].integer))),
                             } else .{
@@ -117,7 +131,6 @@ const Assembler = struct {
                         },
                         .no_operand => .{
                             .opcode = @enumFromInt(bind.opc),
-                            // all these fields are unused
                             .dst = .r0,
                             .src = .r0,
                             .off = 0,
@@ -289,7 +302,3 @@ const Assembler = struct {
         return statements.toOwnedSlice(allocator);
     }
 };
-
-pub fn deinit(exec: *Executable, allocator: std.mem.Allocator) void {
-    allocator.free(exec.instructions);
-}
