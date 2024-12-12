@@ -59,4 +59,19 @@ pub fn build(b: *std.Build) !void {
         sub_step.dependOn(&test_run.step);
         test_step.dependOn(sub_step);
     }
+
+    // benchmarks
+
+    const bench_exe = b.addExecutable(.{
+        .name = "vm_bench",
+        .root_source_file = b.path("bench/vm.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    bench_exe.root_module.addImport("svm", svm_mod);
+
+    const bench_run = b.addRunArtifact(bench_exe);
+    const bench_run_step = b.step("bench", "Runs the benchmark");
+    bench_run_step.dependOn(&bench_run.step);
+    b.installArtifact(bench_exe);
 }

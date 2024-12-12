@@ -68,7 +68,7 @@ pub fn main() !void {
     defer vm.deinit();
     const result = try vm.run();
 
-    std.debug.print("result: {}\n", .{result});
+    std.debug.print("result: {}, count: {}\n", .{ result, vm.instruction_count });
 }
 
 fn fail(comptime fmt: []const u8, args: anytype) noreturn {

@@ -16,6 +16,7 @@ memory_map: MemoryMap,
 stack_pointer: u64,
 call_frames: std.ArrayListUnmanaged(CallFrame),
 depth: u64,
+instruction_count: u64,
 
 pub fn init(
     executable: *const Executable,
@@ -27,9 +28,10 @@ pub fn init(
         .allocator = allocator,
         .registers = std.EnumArray(ebpf.Instruction.Register, u64).initFill(0),
         .memory_map = memory_map,
-        .depth = 0,
         .stack_pointer = 0,
+        .depth = 0,
         .call_frames = try std.ArrayListUnmanaged(CallFrame).initCapacity(allocator, 64),
+        .instruction_count = 0,
     };
 
     vm.registers.set(.r10, memory.STACK_START + 4096);
@@ -44,7 +46,9 @@ pub fn deinit(vm: *Vm) void {
 }
 
 pub fn run(vm: *Vm) !u64 {
-    while (try vm.step()) {}
+    while (try vm.step()) {
+        vm.instruction_count += 1;
+    }
     return vm.registers.get(.r0);
 }
 

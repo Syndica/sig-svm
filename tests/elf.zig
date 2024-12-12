@@ -23,7 +23,6 @@ test "BPF_64_64 sbpfv1" {
 
     try testElfWithMemory(
         &elf,
-        &.{},
         memory.PROGRAM_START + 0x120,
     );
 }
@@ -39,27 +38,25 @@ test "load elf rodata sbpfv1" {
 
     try testElfWithMemory(
         &elf,
-        &.{},
         42,
     );
 }
 
 fn testElfWithMemory(
     elf: *const Elf,
-    program_memory: []const u8,
     expected: anytype,
 ) !void {
     const allocator = std.testing.allocator;
     var executable = try Executable.fromElf(elf);
 
-    const mutable = try allocator.dupe(u8, program_memory);
-    defer allocator.free(mutable);
+    const stack_memory = try allocator.alloc(u8, 4096);
+    defer allocator.free(stack_memory);
 
     const m = try MemoryMap.init(&.{
         elf.getRoRegion() orelse Region.init(.readable, &.{}, memory.PROGRAM_START),
-        Region.init(.readable, &.{}, memory.STACK_START),
+        Region.init(.writeable, stack_memory, memory.STACK_START),
         Region.init(.readable, &.{}, memory.HEAP_START),
-        Region.init(.writeable, mutable, memory.INPUT_START),
+        Region.init(.writeable, &.{}, memory.INPUT_START),
     }, .v1);
 
     var vm = try Vm.init(&executable, m, allocator);
