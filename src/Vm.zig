@@ -1,10 +1,12 @@
 const std = @import("std");
 const Executable = @import("Executable.zig");
 const ebpf = @import("ebpf.zig");
+const Instruction = ebpf.Instruction;
 const memory = @import("memory.zig");
 const MemoryMap = memory.MemoryMap;
 const Vm = @This();
 
+const assert = std.debug.assert;
 const log = std.log.scoped(.vm);
 
 allocator: std.mem.Allocator,
@@ -59,367 +61,232 @@ fn step(vm: *Vm) !bool {
 
     const instructions = vm.executable.instructions;
     const inst = instructions[pc];
+    const opcode = inst.opcode;
 
-    switch (inst.opcode) {
-        .add64_reg => registers.set(inst.dst, registers.get(inst.dst) +% registers.get(inst.src)),
-        .add64_imm => {
-            registers.set(
-                inst.dst,
-                registers.get(inst.dst) +% @as(u64, @bitCast(@as(i64, @as(i32, @bitCast(inst.imm))))),
-            );
-        },
-        .add32_reg => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) +% @as(u32, @truncate(registers.get(inst.src))),
-        ),
-        .add32_imm => registers.set(
-            inst.dst,
-            @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))) +% inst.imm)))),
-        ),
+    switch (opcode) {
+        .add64_reg,
+        .add64_imm,
+        .add32_reg,
+        .add32_imm,
+        .mul64_reg,
+        .mul64_imm,
+        .mul32_reg,
+        .mul32_imm,
+        .sub64_reg,
+        .sub64_imm,
+        .sub32_reg,
+        .sub32_imm,
+        .div64_reg,
+        .div64_imm,
+        .div32_reg,
+        .div32_imm,
+        .xor64_reg,
+        .xor64_imm,
+        .xor32_reg,
+        .xor32_imm,
+        .or64_reg,
+        .or64_imm,
+        .or32_reg,
+        .or32_imm,
+        .and64_reg,
+        .and64_imm,
+        .and32_reg,
+        .and32_imm,
+        .mod64_reg,
+        .mod64_imm,
+        .mod32_reg,
+        .mod32_imm,
+        .mov64_reg,
+        .mov64_imm,
+        .mov32_reg,
+        .mov32_imm,
+        .neg32,
+        .neg64,
+        .arsh64_reg,
+        .arsh64_imm,
+        .arsh32_reg,
+        .arsh32_imm,
+        .lsh64_reg,
+        .lsh64_imm,
+        .lsh32_reg,
+        .lsh32_imm,
+        .rsh64_reg,
+        .rsh64_imm,
+        .rsh32_reg,
+        .rsh32_imm,
+        => {
+            const lhs_large = registers.get(inst.dst);
+            const rhs_large = if (opcode.isReg()) registers.get(inst.src) else inst.imm;
+            const lhs = if (opcode.is64()) lhs_large else @as(u32, @truncate(lhs_large));
+            const rhs = if (opcode.is64()) rhs_large else @as(u32, @truncate(rhs_large));
 
-        .mul64_reg => registers.set(inst.dst, registers.get(inst.dst) *% registers.get(inst.src)),
-        .mul64_imm => registers.set(inst.dst, registers.get(inst.dst) *% inst.imm),
-        .mul32_reg => registers.set(
-            inst.dst,
-            @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))))) *%
-                @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.src))))))),
-        ),
-        .mul32_imm => registers.set(
-            inst.dst,
-            @bitCast(@as(i64, @as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))))) *%
-                @as(i32, @bitCast(inst.imm)))),
-        ),
+            var result: u64 = switch (@intFromEnum(opcode) & 0xF0) {
+                Instruction.add => lhs +% rhs,
+                Instruction.sub => lhs -% rhs,
+                Instruction.mul => lhs *% rhs,
+                Instruction.div => try std.math.divTrunc(u64, lhs, rhs),
+                Instruction.xor => lhs ^ rhs,
+                Instruction.@"or" => lhs | rhs,
+                Instruction.@"and" => lhs & rhs,
+                Instruction.mod => try std.math.mod(u64, lhs, rhs),
+                // NOTE: this edge-case is removed in SBPV2
+                Instruction.mov => if (opcode.is64() and !opcode.isReg()) extend(inst.imm) else rhs,
+                Instruction.neg => value: {
+                    const signed: i64 = @bitCast(lhs);
+                    const negated: u64 = @bitCast(-signed);
+                    break :value if (opcode.is64()) negated else @as(u32, @truncate(negated));
+                },
+                Instruction.arsh => value: {
+                    if (opcode.is64()) {
+                        const signed: i64 = @bitCast(lhs);
+                        const shifted: u64 = @bitCast(signed >> @truncate(rhs));
+                        break :value shifted;
+                    } else {
+                        const signed: i32 = @bitCast(@as(u32, @truncate(lhs)));
+                        const shifted: u32 = @bitCast(signed >> @truncate(rhs));
+                        break :value shifted;
+                    }
+                },
+                Instruction.lsh => lhs << @truncate(rhs),
+                Instruction.rsh => lhs >> @truncate(rhs),
+                else => unreachable,
+            };
 
-        .sub64_reg => registers.set(inst.dst, registers.get(inst.dst) -% registers.get(inst.src)),
-        .sub64_imm => registers.set(inst.dst, registers.get(inst.dst) -% inst.imm),
-        .sub32_reg => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) -% @as(u32, @truncate(registers.get(inst.src))),
-        ),
-        .sub32_imm => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.dst))) -% inst.imm),
+            switch (@intFromEnum(opcode) & 0xF0) {
+                Instruction.mul,
+                => if (!opcode.is64()) {
+                    result = extend(result);
+                },
+                else => {},
+            }
 
-        .div64_reg => registers.set(
-            inst.dst,
-            try std.math.divTrunc(
-                u64,
-                registers.get(inst.dst),
-                registers.get(inst.src),
-            ),
-        ),
-        .div64_imm => registers.set(
-            inst.dst,
-            try std.math.divTrunc(
-                u64,
-                registers.get(inst.dst),
-                inst.imm,
-            ),
-        ),
-        .div32_reg => registers.set(
-            inst.dst,
-            try std.math.divTrunc(
-                u32,
-                @truncate(registers.get(inst.dst)),
-                @truncate(registers.get(inst.src)),
-            ),
-        ),
-        .div32_imm => registers.set(
-            inst.dst,
-            try std.math.divTrunc(
-                u32,
-                @truncate(registers.get(inst.dst)),
-                inst.imm,
-            ),
-        ),
-
-        .xor64_reg => registers.set(inst.dst, registers.get(inst.dst) ^ registers.get(inst.src)),
-        .xor64_imm => registers.set(inst.dst, registers.get(inst.dst) ^ inst.imm),
-        .xor32_reg => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) ^ @as(u32, @truncate(registers.get(inst.src))),
-        ),
-        .xor32_imm => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) ^ inst.imm,
-        ),
-
-        .or64_reg => registers.set(inst.dst, registers.get(inst.dst) | registers.get(inst.src)),
-        .or64_imm => registers.set(inst.dst, registers.get(inst.dst) | inst.imm),
-        .or32_reg => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) | @as(u32, @truncate(registers.get(inst.src))),
-        ),
-        .or32_imm => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) | inst.imm,
-        ),
-
-        .and64_reg => registers.set(inst.dst, registers.get(inst.dst) & registers.get(inst.src)),
-        .and64_imm => registers.set(inst.dst, registers.get(inst.dst) & inst.imm),
-        .and32_reg => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) & @as(u32, @truncate(registers.get(inst.src))),
-        ),
-        .and32_imm => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) & inst.imm,
-        ),
-
-        .mod64_reg => registers.set(
-            inst.dst,
-            try std.math.mod(
-                u64,
-                registers.get(inst.dst),
-                registers.get(inst.src),
-            ),
-        ),
-        .mod64_imm => registers.set(
-            inst.dst,
-            try std.math.mod(
-                u64,
-                registers.get(inst.dst),
-                inst.imm,
-            ),
-        ),
-        .mod32_reg => registers.set(
-            inst.dst,
-            try std.math.mod(
-                u32,
-                @truncate(registers.get(inst.dst)),
-                @truncate(registers.get(inst.src)),
-            ),
-        ),
-        .mod32_imm => registers.set(
-            inst.dst,
-            try std.math.mod(
-                u32,
-                @truncate(registers.get(inst.dst)),
-                inst.imm,
-            ),
-        ),
-
-        .arsh64_reg => registers.set(
-            inst.dst,
-            @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) >> @truncate(registers.get(inst.src))),
-        ),
-        .arsh64_imm => registers.set(
-            inst.dst,
-            @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) >> @truncate(inst.imm)),
-        ),
-        .arsh32_reg => registers.set(
-            inst.dst,
-            @as(u32, @bitCast(@as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))))) >>
-                @truncate(registers.get(inst.src)))),
-        ),
-        .arsh32_imm => registers.set(
-            inst.dst,
-            @as(u32, @bitCast(@as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst))))) >>
-                @truncate(inst.imm))),
-        ),
-
-        .mov64_reg => registers.set(inst.dst, registers.get(inst.src)),
-        .mov64_imm => {
-            registers.set(inst.dst, @bitCast(@as(i64, @as(i32, @bitCast(inst.imm)))));
-        },
-        .mov32_reg => registers.set(inst.dst, @as(u32, @truncate(registers.get(inst.src)))),
-        .mov32_imm => registers.set(inst.dst, @as(u32, @truncate(inst.imm))),
-
-        .neg32 => registers.set(
-            inst.dst,
-            @as(u32, @truncate(@as(u64, @bitCast(@as(i64, -@as(i32, @bitCast(@as(u32, @truncate(registers.get(inst.dst)))))))))),
-        ),
-        .neg64 => registers.set(inst.dst, @bitCast(-@as(i64, @bitCast(registers.get(inst.dst))))),
-
-        .lsh64_reg => registers.set(inst.dst, registers.get(inst.dst) << @truncate(registers.get(inst.src))),
-        .lsh64_imm => registers.set(inst.dst, registers.get(inst.dst) << @truncate(inst.imm)),
-        .lsh32_reg => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) << @truncate(registers.get(inst.src)),
-        ),
-        .lsh32_imm => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) << @truncate(inst.imm),
-        ),
-
-        .rsh64_reg => registers.set(inst.dst, registers.get(inst.dst) >> @truncate(registers.get(inst.src))),
-        .rsh64_imm => registers.set(inst.dst, registers.get(inst.dst) >> @truncate(inst.imm)),
-        .rsh32_reg => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) >> @truncate(registers.get(inst.src)),
-        ),
-        .rsh32_imm => registers.set(
-            inst.dst,
-            @as(u32, @truncate(registers.get(inst.dst))) >> @truncate(inst.imm),
-        ),
-
-        .ld_b_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.load(u8, vm_addr));
-        },
-        .ld_h_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.load(u16, vm_addr));
-        },
-        .ld_w_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.load(u32, vm_addr));
-        },
-        .ld_dw_reg => {
-            const vm_addr: u64 = @intCast(@as(i64, @intCast(registers.get(inst.src))) +% inst.off);
-            registers.set(inst.dst, try vm.load(u64, vm_addr));
-        },
-        .ld_dw_imm => {
-            const value: u64 = (@as(u64, instructions[next_pc].imm) << 32) | inst.imm;
-            registers.set(inst.dst, value);
-            next_pc += 1;
+            registers.set(inst.dst, result);
         },
 
-        .st_b_reg => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u8, vm_addr, @truncate(registers.get(inst.src)));
-        },
-        .st_h_reg => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u16, vm_addr, @truncate(registers.get(inst.src)));
-        },
-        .st_w_reg => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u32, vm_addr, @truncate(registers.get(inst.src)));
-        },
-        .st_dw_reg => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u64, vm_addr, registers.get(inst.src));
+        inline //
+        .ld_b_reg,
+        .st_b_reg,
+        .st_b_imm,
+
+        .ld_h_reg,
+        .st_h_reg,
+        .st_h_imm,
+
+        .ld_w_reg,
+        .st_w_reg,
+        .st_w_imm,
+
+        .ld_dw_reg,
+        .st_dw_reg,
+        .st_dw_imm,
+        => |code| {
+            const T = switch (code) {
+                .ld_b_reg,
+                .st_b_reg,
+                .st_b_imm,
+                => u8,
+                .ld_h_reg,
+                .st_h_reg,
+                .st_h_imm,
+                => u16,
+                .ld_w_reg,
+                .st_w_reg,
+                .st_w_imm,
+                => u32,
+                .ld_dw_reg,
+                .st_dw_reg,
+                .st_dw_imm,
+                => u64,
+                else => comptime unreachable,
+            };
+
+            const access = code.accessType();
+            const address = if (access == .load) inst.src else inst.dst;
+            const vaddr: u64 = @bitCast(@as(i64, @bitCast(registers.get(address))) +% inst.off);
+
+            switch (code.accessType()) {
+                .load => registers.set(inst.dst, try vm.load(T, vaddr)),
+                .store => {
+                    const operand = switch (@as(u3, @truncate(@intFromEnum(opcode)))) {
+                        Instruction.stx => registers.get(inst.src),
+                        Instruction.st => inst.imm,
+                        else => unreachable,
+                    };
+                    try vm.store(T, vaddr, @truncate(operand));
+                },
+            }
         },
 
-        .st_b_imm => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u8, vm_addr, @truncate(inst.imm));
-        },
-        .st_h_imm => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u16, vm_addr, @truncate(inst.imm));
-        },
-        .st_w_imm => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u32, vm_addr, @truncate(inst.imm));
-        },
-        .st_dw_imm => {
-            const vm_addr: u64 = @bitCast(@as(i64, @bitCast(registers.get(inst.dst))) +% inst.off);
-            try vm.store(u64, vm_addr, inst.imm);
-        },
-
-        .be => registers.set(inst.dst, switch (inst.imm) {
+        .be,
+        .le,
+        => registers.set(inst.dst, switch (inst.imm) {
             inline //
             16,
             32,
             64,
-            => |size| std.mem.nativeToBig(
+            => |size| std.mem.nativeTo(
                 std.meta.Int(.unsigned, size),
                 @truncate(registers.get(inst.dst)),
-            ),
-            else => return error.InvalidInstruction,
-        }),
-        .le => registers.set(inst.dst, switch (inst.imm) {
-            inline //
-            16,
-            32,
-            64,
-            => |size| std.mem.nativeToLittle(
-                std.meta.Int(.unsigned, size),
-                @truncate(registers.get(inst.dst)),
+                if (opcode == .le) .little else .big,
             ),
             else => return error.InvalidInstruction,
         }),
 
-        .ja => next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off),
-        .jeq_imm => if (registers.get(inst.dst) == inst.imm) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jeq_reg => if (registers.get(inst.dst) == registers.get(inst.src)) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jne_imm => if (registers.get(inst.dst) != inst.imm) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jne_reg => if (registers.get(inst.dst) != registers.get(inst.src)) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jge_imm => if (registers.get(inst.dst) >= inst.imm) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jge_reg => if (registers.get(inst.dst) >= registers.get(inst.src)) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jgt_imm => if (registers.get(inst.dst) > inst.imm) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jgt_reg => if (registers.get(inst.dst) > registers.get(inst.src)) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jle_imm => if (registers.get(inst.dst) <= inst.imm) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jle_reg => if (registers.get(inst.dst) <= registers.get(inst.src)) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jlt_imm => if (registers.get(inst.dst) < inst.imm) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jlt_reg => if (registers.get(inst.dst) < registers.get(inst.src)) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jset_imm => if (registers.get(inst.dst) & inst.imm != 0) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jset_reg => if (registers.get(inst.dst) & registers.get(inst.src) != 0) {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+        .ja,
+        .jeq_imm,
+        .jeq_reg,
+        .jne_imm,
+        .jne_reg,
+        .jge_imm,
+        .jge_reg,
+        .jgt_imm,
+        .jgt_reg,
+        .jle_imm,
+        .jle_reg,
+        .jlt_imm,
+        .jlt_reg,
+        .jset_imm,
+        .jset_reg,
+        .jsge_imm,
+        .jsge_reg,
+        .jsgt_imm,
+        .jsgt_reg,
+        .jsle_imm,
+        .jsle_reg,
+        .jslt_imm,
+        .jslt_reg,
+        => {
+            const target_pc: u64 = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
+            const lhs = registers.get(inst.dst);
+            const rhs = if (opcode.isReg()) registers.get(inst.src) else inst.imm;
+
+            // for the signed variants
+            const lhs_signed: i64 = @bitCast(lhs);
+            const rhs_signed: i64 = if (opcode.isReg()) @bitCast(rhs) else @as(i32, @bitCast(inst.imm));
+
+            const predicate: bool = switch (opcode) {
+                .ja => true,
+                .jeq_imm, .jeq_reg => lhs == rhs,
+                .jne_imm, .jne_reg => lhs != rhs,
+                .jge_imm, .jge_reg => lhs >= rhs,
+                .jgt_imm, .jgt_reg => lhs > rhs,
+                .jle_imm, .jle_reg => lhs <= rhs,
+                .jlt_imm, .jlt_reg => lhs < rhs,
+                .jset_imm, .jset_reg => lhs & rhs != 0,
+                .jsge_imm, .jsge_reg => lhs_signed >= rhs_signed,
+                .jsgt_imm, .jsgt_reg => lhs_signed > rhs_signed,
+                .jsle_imm, .jsle_reg => lhs_signed <= rhs_signed,
+                .jslt_imm, .jslt_reg => lhs_signed < rhs_signed,
+                else => unreachable,
+            };
+            if (predicate) next_pc = target_pc;
         },
 
-        .jsge_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) >=
-            @as(i64, @as(i32, @bitCast(inst.imm))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jsge_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) >=
-            @as(i64, @bitCast(registers.get(inst.src))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jsgt_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) >
-            @as(i64, @as(i32, @bitCast(inst.imm))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jsgt_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) >
-            @as(i64, @bitCast(registers.get(inst.src))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jsle_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) <=
-            @as(i64, @as(i32, @bitCast(inst.imm))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jsle_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) <=
-            @as(i64, @bitCast(registers.get(inst.src))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jslt_imm => if (@as(i64, @bitCast(registers.get(inst.dst))) <
-            @as(i64, @as(i32, @bitCast(inst.imm))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-        .jslt_reg => if (@as(i64, @bitCast(registers.get(inst.dst))) <
-            @as(i64, @bitCast(registers.get(inst.src))))
-        {
-            next_pc = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
-        },
-
+        // other instructions
         .exit => {
             if (vm.depth == 0) {
                 return false;
             }
-
             vm.depth -= 1;
             const frame = vm.call_frames.pop();
             vm.registers.set(.r10, frame.fp);
@@ -427,15 +294,18 @@ fn step(vm: *Vm) !bool {
             vm.stack_pointer -= 4096;
             next_pc = frame.return_pc;
         },
-
         .call_imm => {
             try vm.pushCallFrame();
-
             const target_pc = inst.imm;
             next_pc = target_pc;
         },
-
-        else => std.debug.panic("TODO: step {}", .{inst}),
+        .call_reg => @panic("TODO"),
+        .ld_dw_imm => {
+            assert(vm.executable.version == .v1);
+            const value: u64 = (@as(u64, instructions[next_pc].imm) << 32) | inst.imm;
+            registers.set(inst.dst, value);
+            next_pc += 1;
+        },
     }
 
     vm.registers.set(.pc, next_pc);
@@ -465,6 +335,16 @@ fn pushCallFrame(vm: *Vm) !void {
 
     vm.stack_pointer += 4096;
     vm.registers.set(.r10, vm.stack_pointer);
+}
+
+/// Performs a i64 sign-extension. This is commonly needed in SBPV1.
+///
+/// NOTE: only use this inside of the VM impl!
+fn extend(input: anytype) u64 {
+    const value: u32 = @truncate(input);
+    const signed: i32 = @bitCast(value);
+    const extended: i64 = signed;
+    return @bitCast(extended);
 }
 
 const CallFrame = struct {

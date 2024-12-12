@@ -224,7 +224,29 @@ pub const Instruction = packed struct(u64) {
 
         /// bpf opcode: `exit` /// `return r0`. /// valid only until sbpfv3
         exit = jmp | exit_code,
-        _,
+
+        pub fn isReg(opcode: OpCode) bool {
+            const is_reg_bit: u1 = @truncate(@intFromEnum(opcode) >> 3);
+            return @bitCast(is_reg_bit);
+        }
+
+        pub fn is64(opcode: OpCode) bool {
+            const class: u3 = @truncate(@intFromEnum(opcode));
+            return switch (class) {
+                alu64_store => true,
+                alu32_load => false,
+                else => std.debug.panic("TODO: {s}", .{@tagName(opcode)}),
+            };
+        }
+
+        pub fn accessType(opcode: OpCode) memory.AccessType {
+            const class: u3 = @truncate(@intFromEnum(opcode));
+            return switch (class) {
+                ld, ldx => .load,
+                st, stx => .store,
+                else => std.debug.panic("TODO: {s}", .{@tagName(opcode)}),
+            };
+        }
     };
 
     const Entry = struct {
@@ -499,4 +521,5 @@ pub const Instruction = packed struct(u64) {
 };
 
 const std = @import("std");
+const memory = @import("memory.zig");
 const assert = std.debug.assert;

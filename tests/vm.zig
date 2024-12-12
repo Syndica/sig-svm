@@ -1157,6 +1157,7 @@ test "jgt reg" {
         0x1,
     );
 }
+
 test "jlt imm" {
     try testAsm(
         \\entrypoint:

@@ -21,10 +21,14 @@ pub fn build(b: *std.Build) !void {
 
     // testing
 
+    const test_step = b.step("test", "Run the test suite");
+    const test_filter = b.option([]const u8, "test-filter", "");
+
     const lib_test_exe = b.addTest(.{
         .root_source_file = b.path("src/lib.zig"),
         .target = target,
         .optimize = optimize,
+        .filter = test_filter,
     });
 
     const svm_mod = b.addModule("svm", .{
@@ -37,6 +41,7 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("tests/vm.zig"),
         .target = target,
         .optimize = optimize,
+        .filter = test_filter,
     });
     vm_test_exe.root_module.addImport("svm", svm_mod);
 
@@ -44,10 +49,9 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("tests/elf.zig"),
         .target = target,
         .optimize = optimize,
+        .filter = test_filter,
     });
     elf_test_exe.root_module.addImport("svm", svm_mod);
-
-    const test_step = b.step("test", "Run the test suite");
 
     inline for (&.{
         .{ lib_test_exe, "lib" },

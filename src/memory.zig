@@ -71,7 +71,6 @@ pub const Region = struct {
     vm_addr_end: u64,
     state: MemoryState = .readable,
 
-    // TODO: use the `state` to ensure `slice` is immutable for readonly regions
     pub fn init(comptime state: MemoryState, slice: state.Slice(), vm_addr: u64) Region {
         const vm_addr_end = vm_addr +| slice.len;
 

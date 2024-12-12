@@ -227,7 +227,7 @@ const Assembler = struct {
                         switch (operands[1]) {
                             .integer => |int| {
                                 try instructions.append(allocator, .{
-                                    .opcode = @enumFromInt(0),
+                                    .opcode = .ld_dw_imm,
                                     .dst = .r0,
                                     .src = .r0,
                                     .off = 0,
