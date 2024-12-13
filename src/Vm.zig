@@ -121,14 +121,18 @@ fn step(vm: *Vm) !bool {
             const rhs = if (opcode.is64()) rhs_large else @as(u32, @truncate(rhs_large));
 
             var result: u64 = switch (@intFromEnum(opcode) & 0xF0) {
-                Instruction.add => lhs +% if (opcode.is64()) extend(rhs) else rhs,
-                Instruction.sub => lhs -% if (opcode.is64()) extend(rhs) else rhs,
-                Instruction.mul => lhs *% rhs,
-                Instruction.div => try std.math.divTrunc(u64, lhs, rhs),
-                Instruction.xor => lhs ^ rhs,
-                Instruction.@"or" => lhs | rhs,
+                // zig fmt: off
+                Instruction.add    => lhs +% if (opcode.is64()) extend(rhs) else rhs,
+                Instruction.sub    => lhs -% if (opcode.is64()) extend(rhs) else rhs,
+                Instruction.mul    => lhs *% rhs,
+                Instruction.div    => try std.math.divTrunc(u64, lhs, rhs),
+                Instruction.xor    => lhs ^ rhs,
+                Instruction.@"or"  => lhs | rhs,
                 Instruction.@"and" => lhs & rhs,
-                Instruction.mod => try std.math.mod(u64, lhs, rhs),
+                Instruction.mod    => try std.math.mod(u64, lhs, rhs),
+                Instruction.lsh    => lhs << @truncate(rhs),
+                Instruction.rsh    => lhs >> @truncate(rhs),
+                // zig fmt: on
                 // NOTE: this edge-case is removed in SBPV2
                 Instruction.mov => if (opcode.is64() and !opcode.isReg()) extend(rhs) else rhs,
                 Instruction.neg => value: {
@@ -147,8 +151,6 @@ fn step(vm: *Vm) !bool {
                         break :value shifted;
                     }
                 },
-                Instruction.lsh => lhs << @truncate(rhs),
-                Instruction.rsh => lhs >> @truncate(rhs),
                 else => unreachable,
             };
 
@@ -265,18 +267,20 @@ fn step(vm: *Vm) !bool {
             const rhs_signed: i64 = if (opcode.isReg()) @bitCast(rhs) else @as(i32, @bitCast(inst.imm));
 
             const predicate: bool = switch (opcode) {
+                // zig fmt: off
                 .ja => true,
-                .jeq_imm, .jeq_reg => lhs == rhs,
-                .jne_imm, .jne_reg => lhs != rhs,
-                .jge_imm, .jge_reg => lhs >= rhs,
-                .jgt_imm, .jgt_reg => lhs > rhs,
-                .jle_imm, .jle_reg => lhs <= rhs,
-                .jlt_imm, .jlt_reg => lhs < rhs,
-                .jset_imm, .jset_reg => lhs & rhs != 0,
+                .jeq_imm,  .jeq_reg  => lhs == rhs,
+                .jne_imm,  .jne_reg  => lhs != rhs,
+                .jge_imm,  .jge_reg  => lhs >= rhs,
+                .jgt_imm,  .jgt_reg  => lhs >  rhs,
+                .jle_imm,  .jle_reg  => lhs <= rhs,
+                .jlt_imm,  .jlt_reg  => lhs <  rhs,
+                .jset_imm, .jset_reg => lhs &  rhs != 0,
                 .jsge_imm, .jsge_reg => lhs_signed >= rhs_signed,
-                .jsgt_imm, .jsgt_reg => lhs_signed > rhs_signed,
+                .jsgt_imm, .jsgt_reg => lhs_signed >  rhs_signed,
                 .jsle_imm, .jsle_reg => lhs_signed <= rhs_signed,
-                .jslt_imm, .jslt_reg => lhs_signed < rhs_signed,
+                .jslt_imm, .jslt_reg => lhs_signed <  rhs_signed,
+                // zig fmt: on
                 else => unreachable,
             };
             if (predicate) next_pc = target_pc;
