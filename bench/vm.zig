@@ -19,7 +19,7 @@ fn benchLong() !u64 {
     const allocator = std.heap.c_allocator;
 
     var executable = try Executable.fromAsm(allocator,
-        \\ entrypoint:
+        \\entrypoint:
         \\  mov r1, r2
         \\  and r1, 4095
         \\  mov r3, r10

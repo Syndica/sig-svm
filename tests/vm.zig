@@ -61,6 +61,15 @@ test "add32" {
     , 3);
 }
 
+test "add64" {
+    try testAsm(
+        \\entrypoint:
+        \\  lddw r0, 0x300000fff
+        \\  add r0, -1
+        \\  exit
+    , 0x300000FFE);
+}
+
 test "alu32 logic" {
     try testAsm(
         \\entrypoint:
@@ -287,6 +296,15 @@ test "sub64 imm" {
         \\  sub r0, 1
         \\  exit
     , 2);
+}
+
+test "sub64 imm negative" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 3
+        \\  sub r0, -1
+        \\  exit
+    , 4);
 }
 
 test "sub64 reg" {

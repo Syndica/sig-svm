@@ -121,8 +121,8 @@ fn step(vm: *Vm) !bool {
             const rhs = if (opcode.is64()) rhs_large else @as(u32, @truncate(rhs_large));
 
             var result: u64 = switch (@intFromEnum(opcode) & 0xF0) {
-                Instruction.add => lhs +% rhs,
-                Instruction.sub => lhs -% rhs,
+                Instruction.add => lhs +% if (opcode.is64()) extend(rhs) else rhs,
+                Instruction.sub => lhs -% if (opcode.is64()) extend(rhs) else rhs,
                 Instruction.mul => lhs *% rhs,
                 Instruction.div => try std.math.divTrunc(u64, lhs, rhs),
                 Instruction.xor => lhs ^ rhs,
