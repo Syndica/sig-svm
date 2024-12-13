@@ -25,7 +25,7 @@ test "mov32 imm large" {
         \\entrypoint:
         \\  mov32 r0, -1
         \\  exit
-    , 0xffffffff);
+    , 0xFFFFFFFF);
 }
 
 test "mov large" {
@@ -34,7 +34,7 @@ test "mov large" {
         \\  mov32 r1, -1
         \\  mov32 r0, r1
         \\  exit
-    , 0xffffffff);
+    , 0xFFFFFFFF);
 }
 
 test "bounce" {

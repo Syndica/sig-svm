@@ -116,15 +116,14 @@ fn step(vm: *Vm) !bool {
         .rsh32_imm,
         => {
             const lhs_large = registers.get(inst.dst);
-            const rhs_large = if (opcode.isReg()) registers.get(inst.src) else inst.imm;
+            const rhs_large = if (opcode.isReg()) registers.get(inst.src) else extend(inst.imm);
             const lhs = if (opcode.is64()) lhs_large else @as(u32, @truncate(lhs_large));
             const rhs = if (opcode.is64()) rhs_large else @as(u32, @truncate(rhs_large));
 
             var result: u64 = switch (@intFromEnum(opcode) & 0xF0) {
                 // zig fmt: off
-                Instruction.add    => lhs +% if (opcode.is64()) extend(rhs) else rhs,
-                Instruction.sub    => lhs -% if (opcode.is64()) extend(rhs) else rhs,
-                Instruction.mul    => lhs *% rhs,
+                Instruction.add    => lhs +% rhs,
+                Instruction.sub    => lhs -% rhs,
                 Instruction.div    => try std.math.divTrunc(u64, lhs, rhs),
                 Instruction.xor    => lhs ^ rhs,
                 Instruction.@"or"  => lhs | rhs,
@@ -132,9 +131,14 @@ fn step(vm: *Vm) !bool {
                 Instruction.mod    => try std.math.mod(u64, lhs, rhs),
                 Instruction.lsh    => lhs << @truncate(rhs),
                 Instruction.rsh    => lhs >> @truncate(rhs),
+                Instruction.mov    => rhs,
                 // zig fmt: on
-                // NOTE: this edge-case is removed in SBPV2
-                Instruction.mov => if (opcode.is64() and !opcode.isReg()) extend(rhs) else rhs,
+                Instruction.mul => value: {
+                    if (opcode.is64()) break :value lhs *% rhs;
+                    const lhs_signed: i32 = @bitCast(@as(u32, @truncate(lhs)));
+                    const rhs_signed: i32 = @bitCast(@as(u32, @truncate(rhs)));
+                    break :value @bitCast(@as(i64, lhs_signed *% rhs_signed));
+                },
                 Instruction.neg => value: {
                     const signed: i64 = @bitCast(lhs);
                     const negated: u64 = @bitCast(-signed);
@@ -155,7 +159,7 @@ fn step(vm: *Vm) !bool {
             };
 
             switch (@intFromEnum(opcode) & 0xF0) {
-                Instruction.mul,
+                Instruction.add,
                 => if (!opcode.is64()) {
                     result = extend(result);
                 },
