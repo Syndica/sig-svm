@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     const vm_test_exe = b.addTest(.{
-        .root_source_file = b.path("tests/vm.zig"),
+        .root_source_file = b.path("tests/vm_rt.zig"),
         .target = target,
         .optimize = optimize,
         .filter = test_filter,
@@ -68,7 +68,7 @@ pub fn build(b: *std.Build) !void {
 
     const bench_exe = b.addExecutable(.{
         .name = "vm_bench",
-        .root_source_file = b.path("bench/vm.zig"),
+        .root_source_file = b.path("bench/vm_bench.zig"),
         .target = target,
         .optimize = optimize,
     });

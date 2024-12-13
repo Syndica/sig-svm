@@ -130,7 +130,7 @@ fn step(vm: *Vm) !bool {
                 Instruction.@"and" => lhs & rhs,
                 Instruction.mod => try std.math.mod(u64, lhs, rhs),
                 // NOTE: this edge-case is removed in SBPV2
-                Instruction.mov => if (opcode.is64() and !opcode.isReg()) extend(inst.imm) else rhs,
+                Instruction.mov => if (opcode.is64() and !opcode.isReg()) extend(rhs) else rhs,
                 Instruction.neg => value: {
                     const signed: i64 = @bitCast(lhs);
                     const negated: u64 = @bitCast(-signed);
@@ -258,7 +258,7 @@ fn step(vm: *Vm) !bool {
         => {
             const target_pc: u64 = @intCast(@as(i64, @intCast(next_pc)) + inst.off);
             const lhs = registers.get(inst.dst);
-            const rhs = if (opcode.isReg()) registers.get(inst.src) else inst.imm;
+            const rhs = if (opcode.isReg()) registers.get(inst.src) else extend(inst.imm);
 
             // for the signed variants
             const lhs_signed: i64 = @bitCast(lhs);

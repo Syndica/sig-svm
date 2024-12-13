@@ -1210,6 +1210,21 @@ test "jlt reg" {
     );
 }
 
+test "jlt extend" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov r0, 0
+        \\  add r0, -3  
+        \\  jlt r0, -2, +2 
+        \\  mov r0, 1             
+        \\  exit                 
+        \\  mov r0, 2           
+        \\  exit    
+    ,
+        2,
+    );
+}
+
 test "jne imm" {
     try testAsm(
         \\entrypoint:
