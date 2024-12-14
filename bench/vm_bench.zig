@@ -11,11 +11,12 @@ const Region = memory.Region;
 const ITERS = 1_000;
 
 pub fn main() !void {
-    const avg_ns = try benchLong();
-    std.debug.print("avg: {}\n", .{std.fmt.fmtDuration(avg_ns)});
+    const avg_ns, const num_instructions = try benchLong();
+    std.debug.print("num inst: {}\n", .{num_instructions});
+    std.debug.print("avg: {}, avg: {}ns/inst\n", .{ std.fmt.fmtDuration(avg_ns), avg_ns / num_instructions });
 }
 
-fn benchLong() !u64 {
+fn benchLong() !struct { u64, u64 } {
     const allocator = std.heap.c_allocator;
 
     var executable = try Executable.fromAsm(allocator,
@@ -45,7 +46,7 @@ fn benchLong() !u64 {
     return benchmarkVm(&executable, m, allocator);
 }
 
-fn benchSimple() !u64 {
+fn benchSimple() !struct { u64, u64 } {
     const allocator = std.heap.c_allocator;
     const input_file = try std.fs.cwd().openFile("tests/elfs/rodata_section_sbpfv1.so", .{});
     const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
@@ -64,16 +65,17 @@ fn benchSimple() !u64 {
         Region.init(.writeable, &.{}, memory.INPUT_START),
     }, .v1);
 
-    const avg_ns = try benchmarkVm(&executable, m, allocator);
-    return avg_ns;
+    return benchmarkVm(&executable, m, allocator);
 }
 
 fn benchmarkVm(
     executable: *const Executable,
     m: MemoryMap,
     allocator: std.mem.Allocator,
-) !u64 {
+) !struct { u64, u64 } {
     var total_ns: u64 = 0;
+    var num_instructions: ?u64 = null;
+
     for (0..ITERS) |_| {
         var vm = try Vm.init(executable, m, allocator);
         defer vm.deinit();
@@ -83,7 +85,8 @@ fn benchmarkVm(
         const end = try std.time.Instant.now();
         const elapsed = end.since(start);
         total_ns += elapsed;
+        if (num_instructions == null) num_instructions = vm.instruction_count;
     }
 
-    return total_ns / ITERS;
+    return .{ total_ns / ITERS, num_instructions.? };
 }
