@@ -27,6 +27,36 @@ test "BPF_64_64 sbpfv1" {
     );
 }
 
+test "BPF_64_RELATIVE sbpv1" {
+    const allocator = std.testing.allocator;
+
+    const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_relative_sbpfv1.so", .{});
+    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    defer allocator.free(bytes);
+
+    const elf = try Elf.parse(bytes);
+
+    try testElfWithMemory(
+        &elf,
+        memory.PROGRAM_START + 0x138,
+    );
+}
+
+test "BPF_64_RELATIVE data sbpv1" {
+    const allocator = std.testing.allocator;
+
+    const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_relative_data_sbpfv1.so", .{});
+    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    defer allocator.free(bytes);
+
+    const elf = try Elf.parse(bytes);
+
+    try testElfWithMemory(
+        &elf,
+        memory.PROGRAM_START + 0x108,
+    );
+}
+
 test "load elf rodata sbpfv1" {
     const allocator = std.testing.allocator;
 

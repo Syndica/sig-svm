@@ -377,7 +377,13 @@ fn relocate(input: *Elf) !void {
                         const imm_slice = input.bytes[imm_high_offset..][0..4];
                         std.mem.writeInt(u32, imm_slice, @intCast(ref_addr >> 32), .little);
                     }
-                } else @panic("TODO");
+                } else {
+                    if (input.version == .v1) {
+                        const address = std.mem.readInt(u32, input.bytes[imm_offset..][0..4], .little);
+                        const ref_addr = memory.PROGRAM_START +| address;
+                        std.mem.writeInt(u64, input.bytes[r_offset..][0..8], ref_addr, .little);
+                    } else @panic("TODO");
+                }
             },
             else => |t| std.debug.panic("TODO: handle relocation {s}", .{@tagName(t)}),
         }
