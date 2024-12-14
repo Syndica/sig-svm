@@ -10,6 +10,7 @@ version: ebpf.SBPFVersion,
 entry_pc: u64,
 from_elf: bool,
 ro_section: Section,
+text_vaddr: u64,
 
 pub const Section = union(enum) {
     owned: Owned,
@@ -35,6 +36,7 @@ pub fn fromElf(allocator: std.mem.Allocator, elf: *const Elf) !Executable {
         .version = elf.version,
         .entry_pc = elf.entry_pc,
         .from_elf = true,
+        .text_vaddr = elf.getShdrByName(".text").?.sh_addr,
     };
 }
 
@@ -47,6 +49,7 @@ pub fn fromAsm(allocator: std.mem.Allocator, source: []const u8) !Executable {
         .version = .v1,
         .entry_pc = 0,
         .from_elf = false,
+        .text_vaddr = memory.PROGRAM_START,
     };
 }
 
@@ -250,6 +253,13 @@ const Assembler = struct {
                             } else {
                                 @panic("TODO: imm call");
                             }
+                        },
+                        .call_reg => .{
+                            .opcode = @enumFromInt(bind.opc),
+                            .dst = .r0,
+                            .src = .r0,
+                            .off = 0,
+                            .imm = @intFromEnum(operands[0].register),
                         },
                         else => std.debug.panic("TODO: {s}", .{@tagName(bind.inst)}),
                     };

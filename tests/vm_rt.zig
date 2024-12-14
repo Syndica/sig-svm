@@ -1460,6 +1460,29 @@ test "entrypoint exit" {
     , 42);
 }
 
+test "callx imm" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov64 r0, 0x0
+        \\  mov64 r8, 0x1
+        \\  lsh64 r8, 0x20
+        \\  or64 r8, 0x30
+        \\  callx r8
+        \\  exit
+        \\function_foo:
+        \\  mov64 r0, 0x2A
+        \\  exit
+    , 42);
+}
+
+test "fixed stack out of bounds" {
+    try testAsm(
+        \\entrypoint:
+        \\  stb [r10-0x4000], 0
+        \\  exit
+    , error.AccessViolation);
+}
+
 fn testAsm(source: []const u8, expected: anytype) !void {
     return testAsmWithMemory(source, &.{}, expected);
 }

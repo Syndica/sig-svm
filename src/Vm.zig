@@ -15,6 +15,7 @@ executable: *const Executable,
 registers: std.EnumArray(ebpf.Instruction.Register, u64),
 memory_map: MemoryMap,
 
+vm_addr: u64,
 stack_pointer: u64,
 call_frames: std.ArrayListUnmanaged(CallFrame),
 depth: u64,
@@ -34,6 +35,7 @@ pub fn init(
         .depth = 0,
         .call_frames = try std.ArrayListUnmanaged(CallFrame).initCapacity(allocator, 64),
         .instruction_count = 0,
+        .vm_addr = executable.text_vaddr,
     };
 
     vm.registers.set(.r10, memory.STACK_START + 4096);
@@ -307,7 +309,12 @@ fn step(vm: *Vm) !bool {
             const target_pc = inst.imm;
             next_pc = target_pc;
         },
-        .call_reg => @panic("TODO"),
+        .call_reg => {
+            try vm.pushCallFrame();
+
+            const target_pc = registers.get(@enumFromInt(inst.imm));
+            next_pc = (target_pc -% vm.vm_addr) / 8;
+        },
         .ld_dw_imm => {
             assert(vm.executable.version == .v1);
             const value: u64 = (@as(u64, instructions[next_pc].imm) << 32) | inst.imm;

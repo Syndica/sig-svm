@@ -430,7 +430,7 @@ fn getShdrIndexByName(self: *const Elf, name: []const u8) ?u32 {
     return null;
 }
 
-fn getShdrByName(self: *const Elf, name: []const u8) ?elf.Elf64_Shdr {
+pub fn getShdrByName(self: *const Elf, name: []const u8) ?elf.Elf64_Shdr {
     const index = self.getShdrIndexByName(name) orelse return null;
     return self.shdrs[index];
 }
