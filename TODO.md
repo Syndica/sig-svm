@@ -1,4 +1,3 @@
-- RO section combination, since EBPF only has one PROGRAM virtual space
 - Syscall loader
 - Extend to support SBFv2
 - Extend testing suite to pass everything RBPF has

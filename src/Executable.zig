@@ -1,15 +1,36 @@
 const std = @import("std");
 const ebpf = @import("ebpf.zig");
 const Elf = @import("Elf.zig");
+const memory = @import("memory.zig");
 const Executable = @This();
 
+bytes: []const u8,
 instructions: []align(1) const ebpf.Instruction,
 version: ebpf.SBPFVersion,
 entry_pc: u64,
 from_elf: bool,
+ro_section: Section,
 
-pub fn fromElf(elf: *const Elf) !Executable {
+pub const Section = union(enum) {
+    owned: Owned,
+    assembly: Assembly,
+
+    const Owned = struct {
+        offset: u64,
+        data: []const u8,
+    };
+
+    const Assembly = struct {
+        offset: u64,
+        start: u64,
+        end: u64,
+    };
+};
+
+pub fn fromElf(allocator: std.mem.Allocator, elf: *const Elf) !Executable {
     return .{
+        .bytes = elf.bytes,
+        .ro_section = try elf.parseRoSections(allocator),
         .instructions = try elf.getInstructions(),
         .version = elf.version,
         .entry_pc = elf.entry_pc,
@@ -20,6 +41,8 @@ pub fn fromElf(elf: *const Elf) !Executable {
 pub fn fromAsm(allocator: std.mem.Allocator, source: []const u8) !Executable {
     const instructions = try Assembler.parse(allocator, source);
     return .{
+        .bytes = source,
+        .ro_section = .{ .assembly = .{ .offset = 0, .start = 0, .end = source.len } },
         .instructions = instructions,
         .version = .v1,
         .entry_pc = 0,
@@ -34,8 +57,19 @@ pub fn fromAsm(allocator: std.mem.Allocator, source: []const u8) !Executable {
 /// than 1 like they would be if we created the executable from the Elf file. The GPA
 /// requires allocations and deallocations to be made with the same semantic alignment.
 pub fn deinit(exec: *Executable, allocator: std.mem.Allocator) void {
-    std.debug.assert(!exec.from_elf);
-    allocator.free(@as([]const ebpf.Instruction, @alignCast(exec.instructions)));
+    if (!exec.from_elf) allocator.free(@as([]const ebpf.Instruction, @alignCast(exec.instructions)));
+    switch (exec.ro_section) {
+        .owned => |owned| allocator.free(owned.data),
+        else => {},
+    }
+}
+
+pub fn getRoRegion(exec: *const Executable) memory.Region {
+    const offset, const ro_data = switch (exec.ro_section) {
+        .owned => |o| .{ o.offset, o.data },
+        .assembly => |a| .{ a.offset, exec.bytes[a.start..a.end] },
+    };
+    return memory.Region.init(.readable, ro_data, memory.PROGRAM_START +| offset);
 }
 
 const Assembler = struct {

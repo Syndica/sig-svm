@@ -46,9 +46,9 @@ pub fn main() !void {
         try Executable.fromAsm(allocator, bytes)
     else exec: {
         const elf = try Elf.parse(bytes);
-        break :exec try Executable.fromElf(&elf);
+        break :exec try Executable.fromElf(allocator, &elf);
     };
-    defer if (assemble) executable.deinit(allocator);
+    defer executable.deinit(allocator);
 
     const input_mem = try allocator.alloc(u8, 100);
     defer allocator.free(input_mem);
@@ -58,7 +58,7 @@ pub fn main() !void {
     defer allocator.free(stack_memory);
 
     const m = try MemoryMap.init(&.{
-        memory.Region.init(.readable, &.{}, memory.PROGRAM_START),
+        executable.getRoRegion(),
         memory.Region.init(.writeable, stack_memory, memory.STACK_START),
         memory.Region.init(.writeable, &.{}, memory.HEAP_START),
         memory.Region.init(.readable, input_mem, memory.INPUT_START),

@@ -58,7 +58,7 @@ fn benchSimple() !u64 {
     defer allocator.free(stack_memory);
 
     const m = try MemoryMap.init(&.{
-        elf.getRoRegion() orelse Region.init(.readable, &.{}, memory.PROGRAM_START),
+        executable.getRoRegion(),
         Region.init(.writeable, stack_memory, memory.STACK_START),
         Region.init(.readable, &.{}, memory.HEAP_START),
         Region.init(.writeable, &.{}, memory.INPUT_START),

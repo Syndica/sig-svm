@@ -3,6 +3,7 @@
 const std = @import("std");
 const ebpf = @import("ebpf.zig");
 const memory = @import("memory.zig");
+const Executable = @import("Executable.zig");
 const Elf = @This();
 
 const elf = std.elf;
@@ -152,6 +153,79 @@ fn parseDynamicSymbolTable(input: *Elf) !void {
     } else return error.InvalidDynamicSectionTable;
 }
 
+pub fn parseRoSections(input: *const Elf, gpa: std.mem.Allocator) !Executable.Section {
+    const ro_names: []const []const u8 = &.{
+        ".text",
+        ".rodata",
+        ".data.rel.ro",
+        ".eh_frame",
+    };
+
+    var lowest_addr: usize = std.math.maxInt(usize);
+    var highest_addr: usize = 0;
+
+    var ro_fill_length: usize = 0;
+    var invalid_offsets: bool = false;
+
+    var first_ro_section: usize = 0;
+    var last_ro_section: usize = 0;
+    var n_ro_sections: usize = 0;
+
+    var ro_slices = try std.ArrayListUnmanaged(struct { usize, []const u8 }).initCapacity(gpa, input.shdrs.len);
+    defer ro_slices.deinit(gpa);
+
+    for (input.shdrs, 0..) |shdr, i| {
+        const name = input.getString(shdr.sh_name);
+        for (ro_names) |ro_name| {
+            if (std.mem.eql(u8, ro_name, name)) break;
+        } else continue;
+
+        if (n_ro_sections == 0) {
+            first_ro_section = i;
+        }
+        last_ro_section = i;
+        n_ro_sections = n_ro_sections +| 1;
+
+        const section_addr = shdr.sh_addr;
+
+        if (!invalid_offsets) {
+            if (section_addr != shdr.sh_offset) invalid_offsets = true;
+        }
+
+        const vaddr_end = section_addr +| memory.PROGRAM_START;
+        if (vaddr_end > memory.STACK_START) {
+            return error.ValueOutOfBounds;
+        }
+
+        const section_data = input.shdrSlice(@intCast(i));
+        lowest_addr = @min(lowest_addr, section_addr);
+        highest_addr = @max(highest_addr, section_addr +| section_data.len);
+        ro_fill_length +|= section_data.len;
+
+        ro_slices.appendAssumeCapacity(.{ section_addr, section_data });
+    }
+
+    // NOTE: this check isn't valid for SBFv1, just here for sanity. will need to remove for testing.
+    if (lowest_addr +| ro_fill_length > highest_addr) {
+        return error.ValueOutOfBounds;
+    }
+
+    lowest_addr = 0;
+    const buf_len = highest_addr;
+    if (buf_len > input.bytes.len) {
+        return error.ValueOutOfBounds;
+    }
+
+    const ro_section = try gpa.alloc(u8, buf_len);
+    for (ro_slices.items) |ro_slice| {
+        const section_addr, const slice = ro_slice;
+        const buf_offset_start = section_addr -| lowest_addr;
+        @memcpy(ro_section[buf_offset_start..][0..slice.len], slice);
+    }
+
+    return .{ .owned = .{ .offset = lowest_addr, .data = ro_section } };
+}
+
 /// Validates the Elf. Returns errors for issues encountered.
 fn validate(input: *Elf) !void {
     const header = input.header;
@@ -209,7 +283,7 @@ fn validate(input: *Elf) !void {
     // ensure all of the section headers are within bounds
     for (input.shdrs) |shdr| {
         const start = shdr.sh_offset;
-        const end = try std.math.add(usize, start, shdr.sh_size);
+        const end = try std.math.add(u64, start, shdr.sh_size);
 
         const file_size = input.bytes.len;
         if (start > file_size or end > file_size) return error.Oob;
@@ -303,7 +377,7 @@ fn relocate(input: *Elf) !void {
                         const imm_slice = input.bytes[imm_high_offset..][0..4];
                         std.mem.writeInt(u32, imm_slice, @intCast(ref_addr >> 32), .little);
                     }
-                }
+                } else @panic("TODO");
             },
             else => |t| std.debug.panic("TODO: handle relocation {s}", .{@tagName(t)}),
         }
@@ -317,11 +391,7 @@ pub fn getInstructions(input: *const Elf) ![]align(1) const ebpf.Instruction {
     return std.mem.bytesAsSlice(ebpf.Instruction, text_bytes);
 }
 
-/// Allocates, reads, and returns the contents of a section header.
-fn shdrSlice(
-    self: *const Elf,
-    index: u32,
-) []const u8 {
+fn shdrSlice(self: *const Elf, index: u32) []const u8 {
     assert(index < self.shdrs.len);
     const shdr = self.shdrs[index];
     const sh_offset = shdr.sh_offset;
@@ -329,11 +399,7 @@ fn shdrSlice(
     return self.bytes[sh_offset..][0..sh_size];
 }
 
-/// Allocates, reads, and returns the contents of a program header.
-fn phdrSlice(
-    self: *const Elf,
-    index: u32,
-) []const u8 {
+fn phdrSlice(self: *const Elf, index: u32) []const u8 {
     assert(index < self.shdrs.len);
     const phdr = self.phdrs[index];
     const p_offset = phdr.p_offset;
@@ -368,14 +434,4 @@ fn getPhdrIndexByType(self: *const Elf, p_type: elf.Elf64_Word) ?u32 {
         if (phdr.p_type == p_type) return @intCast(i);
     }
     return null;
-}
-
-// TODO: maybe something similar to RBPF's ro section compression. maybe that's needed?
-pub fn getRoRegion(self: *const Elf) ?memory.Region {
-    const rodata_index = self.getShdrIndexByName(".rodata") orelse return null;
-    return memory.Region.init(
-        .readable,
-        self.shdrSlice(rodata_index),
-        memory.PROGRAM_START + 0x140,
-    );
 }
