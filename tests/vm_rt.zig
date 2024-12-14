@@ -1475,6 +1475,37 @@ test "callx imm" {
     , 42);
 }
 
+test "callx out of bounds" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov64 r0, 0x3
+        \\  callx r0
+        \\  exit
+    , error.PcOutOfBounds);
+}
+
+test "call bpf 2 bpf" {
+    try testAsm(
+        \\entrypoint:
+        \\  mov64 r6, 0x11
+        \\  mov64 r7, 0x22
+        \\  mov64 r8, 0x44
+        \\  mov64 r9, 0x88
+        \\  call function_foo
+        \\  mov64 r0, r6
+        \\  add64 r0, r7
+        \\  add64 r0, r8
+        \\  add64 r0, r9
+        \\  exit
+        \\function_foo:
+        \\  mov64 r6, 0x00
+        \\  mov64 r7, 0x00
+        \\  mov64 r8, 0x00
+        \\  mov64 r9, 0x00
+        \\  exit
+    , 255);
+}
+
 test "fixed stack out of bounds" {
     try testAsm(
         \\entrypoint:

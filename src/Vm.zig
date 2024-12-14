@@ -323,6 +323,7 @@ fn step(vm: *Vm) !bool {
         },
     }
 
+    if (next_pc >= instructions.len) return error.PcOutOfBounds;
     vm.registers.set(.pc, next_pc);
     return true;
 }
