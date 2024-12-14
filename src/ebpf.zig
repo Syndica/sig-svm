@@ -53,122 +53,122 @@ pub const Instruction = packed struct(u64) {
         st_dw_reg = stx | mem | dw,
 
         /// bpf opcode: `add32 dst, imm` /// `dst += imm`.
-        add32_imm = alu32_load | k | add,
+        add32_imm = alu32 | k | add,
         /// bpf opcode: `add32 dst, src` /// `dst += src`.
-        add32_reg = alu32_load | x | add,
+        add32_reg = alu32 | x | add,
         /// bpf opcode: `sub32 dst, imm` /// `dst = imm - dst`.
-        sub32_imm = alu32_load | k | sub,
+        sub32_imm = alu32 | k | sub,
         /// bpf opcode: `sub32 dst, src` /// `dst -= src`.
-        sub32_reg = alu32_load | x | sub,
+        sub32_reg = alu32 | x | sub,
 
         /// bpf opcode: `mul32 dst, imm` /// `dst *= imm`.
-        mul32_imm = alu32_load | k | mul,
+        mul32_imm = alu32 | k | mul,
 
         /// bpf opcode: `mul32 dst, src` /// `dst *= src`.
-        mul32_reg = alu32_load | x | mul,
+        mul32_reg = alu32 | x | mul,
         /// bpf opcode: `div32 dst, imm` /// `dst /= imm`.
-        div32_imm = alu32_load | k | div,
+        div32_imm = alu32 | k | div,
         /// bpf opcode: `div32 dst, src` /// `dst /= src`.
-        div32_reg = alu32_load | x | div,
+        div32_reg = alu32 | x | div,
 
         /// bpf opcode: `or32 dst, imm` /// `dst |= imm`.
-        or32_imm = alu32_load | k | @"or",
+        or32_imm = alu32 | k | @"or",
         /// bpf opcode: `or32 dst, src` /// `dst |= src`.
-        or32_reg = alu32_load | x | @"or",
+        or32_reg = alu32 | x | @"or",
         /// bpf opcode: `and32 dst, imm` /// `dst &= imm`.
-        and32_imm = alu32_load | k | @"and",
+        and32_imm = alu32 | k | @"and",
         /// bpf opcode: `and32 dst, src` /// `dst &= src`.
-        and32_reg = alu32_load | x | @"and",
+        and32_reg = alu32 | x | @"and",
         /// bpf opcode: `lsh32 dst, imm` /// `dst <<= imm`.
-        lsh32_imm = alu32_load | k | lsh,
+        lsh32_imm = alu32 | k | lsh,
         /// bpf opcode: `lsh32 dst, src` /// `dst <<= src`.
-        lsh32_reg = alu32_load | x | lsh,
+        lsh32_reg = alu32 | x | lsh,
         /// bpf opcode: `rsh32 dst, imm` /// `dst >>= imm`.
-        rsh32_imm = alu32_load | k | rsh,
+        rsh32_imm = alu32 | k | rsh,
         /// bpf opcode: `rsh32 dst, src` /// `dst >>= src`.
-        rsh32_reg = alu32_load | x | rsh,
+        rsh32_reg = alu32 | x | rsh,
 
         /// bpf opcode: `neg32 dst` /// `dst = -dst`.
-        neg32 = alu32_load | neg,
+        neg32 = alu32 | neg,
 
         /// bpf opcode: `mod32 dst, imm` /// `dst %= imm`.
-        mod32_imm = alu32_load | k | mod,
+        mod32_imm = alu32 | k | mod,
         /// bpf opcode: `mod32 dst, src` /// `dst %= src`.
-        mod32_reg = alu32_load | x | mod,
+        mod32_reg = alu32 | x | mod,
 
         /// bpf opcode: `xor32 dst, imm` /// `dst ^= imm`.
-        xor32_imm = alu32_load | k | xor,
+        xor32_imm = alu32 | k | xor,
         /// bpf opcode: `xor32 dst, src` /// `dst ^= src`.
-        xor32_reg = alu32_load | x | xor,
+        xor32_reg = alu32 | x | xor,
         /// bpf opcode: `mov32 dst, imm` /// `dst = imm`.
-        mov32_imm = alu32_load | k | mov,
+        mov32_imm = alu32 | k | mov,
         /// bpf opcode: `mov32 dst, src` /// `dst = src`.
-        mov32_reg = alu32_load | x | mov,
+        mov32_reg = alu32 | x | mov,
         /// bpf opcode: `arsh32 dst, imm` /// `dst >>= imm (arithmetic)`.
-        arsh32_imm = alu32_load | k | arsh,
+        arsh32_imm = alu32 | k | arsh,
         /// bpf opcode: `arsh32 dst, src` /// `dst >>= src (arithmetic)`.
-        arsh32_reg = alu32_load | x | arsh,
+        arsh32_reg = alu32 | x | arsh,
 
         /// bpf opcode: `le dst` /// `dst = htole<imm>(dst), with imm in {16, 32, 64}`.
-        le = alu32_load | k | end,
+        le = alu32 | k | end,
         /// bpf opcode: `be dst` /// `dst = htobe<imm>(dst), with imm in {16, 32, 64}`.
-        be = alu32_load | x | end,
+        be = alu32 | x | end,
 
         /// bpf opcode: `add64 dst, imm` /// `dst += imm`.
-        add64_imm = alu64_store | k | add,
+        add64_imm = alu64 | k | add,
         /// bpf opcode: `add64 dst, src` /// `dst += src`.
-        add64_reg = alu64_store | x | add,
+        add64_reg = alu64 | x | add,
         /// bpf opcode: `sub64 dst, imm` /// `dst -= imm`.
-        sub64_imm = alu64_store | k | sub,
+        sub64_imm = alu64 | k | sub,
         /// bpf opcode: `sub64 dst, src` /// `dst -= src`.
-        sub64_reg = alu64_store | x | sub,
+        sub64_reg = alu64 | x | sub,
 
         /// bpf opcode: `mul64 dst, imm` /// `dst *= imm`.
-        mul64_imm = alu64_store | k | mul,
+        mul64_imm = alu64 | k | mul,
         /// bpf opcode: `mul64 dst, src` /// `dst *= src`.
-        mul64_reg = alu64_store | x | mul,
+        mul64_reg = alu64 | x | mul,
         /// bpf opcode: `div64 dst, imm` /// `dst /= imm`.
-        div64_imm = alu64_store | k | div,
+        div64_imm = alu64 | k | div,
         /// bpf opcode: `div64 dst, src` /// `dst /= src`.
-        div64_reg = alu64_store | x | div,
+        div64_reg = alu64 | x | div,
 
         /// bpf opcode: `or64 dst, imm` /// `dst |= imm`.
-        or64_imm = alu64_store | k | @"or",
+        or64_imm = alu64 | k | @"or",
         /// bpf opcode: `or64 dst, src` /// `dst |= src`.
-        or64_reg = alu64_store | x | @"or",
+        or64_reg = alu64 | x | @"or",
         /// bpf opcode: `and64 dst, imm` /// `dst &= imm`.
-        and64_imm = alu64_store | k | @"and",
+        and64_imm = alu64 | k | @"and",
         /// bpf opcode: `and64 dst, src` /// `dst &= src`.
-        and64_reg = alu64_store | x | @"and",
+        and64_reg = alu64 | x | @"and",
         /// bpf opcode: `lsh64 dst, imm` /// `dst <<= imm`.
-        lsh64_imm = alu64_store | k | lsh,
+        lsh64_imm = alu64 | k | lsh,
         /// bpf opcode: `lsh64 dst, src` /// `dst <<= src`.
-        lsh64_reg = alu64_store | x | lsh,
+        lsh64_reg = alu64 | x | lsh,
         /// bpf opcode: `rsh64 dst, imm` /// `dst >>= imm`.
-        rsh64_imm = alu64_store | k | rsh,
+        rsh64_imm = alu64 | k | rsh,
         /// bpf opcode: `rsh64 dst, src` /// `dst >>= src`.
-        rsh64_reg = alu64_store | x | rsh,
+        rsh64_reg = alu64 | x | rsh,
 
         /// bpf opcode: `neg64 dst` /// `dst = -dst`.
-        neg64 = alu64_store | neg,
+        neg64 = alu64 | neg,
 
         /// bpf opcode: `mod64 dst, imm` /// `dst %= imm`.
-        mod64_imm = alu64_store | k | mod,
+        mod64_imm = alu64 | k | mod,
         /// bpf opcode: `mod64 dst, src` /// `dst %= src`.
-        mod64_reg = alu64_store | x | mod,
+        mod64_reg = alu64 | x | mod,
 
         /// bpf opcode: `xor64 dst, imm` /// `dst ^= imm`.
-        xor64_imm = alu64_store | k | xor,
+        xor64_imm = alu64 | k | xor,
         /// bpf opcode: `xor64 dst, src` /// `dst ^= src`.
-        xor64_reg = alu64_store | x | xor,
+        xor64_reg = alu64 | x | xor,
         /// bpf opcode: `mov64 dst, imm` /// `dst = imm`.
-        mov64_imm = alu64_store | k | mov,
+        mov64_imm = alu64 | k | mov,
         /// bpf opcode: `mov64 dst, src` /// `dst = src`.
-        mov64_reg = alu64_store | x | mov,
+        mov64_reg = alu64 | x | mov,
         /// bpf opcode: `arsh64 dst, imm` /// `dst >>= imm (arithmetic)`.
-        arsh64_imm = alu64_store | k | arsh,
+        arsh64_imm = alu64 | k | arsh,
         /// bpf opcode: `arsh64 dst, src` /// `dst >>= src (arithmetic)`.
-        arsh64_reg = alu64_store | x | arsh,
+        arsh64_reg = alu64 | x | arsh,
 
         /// bpf opcode: `ja +off` /// `pc += off`.
         ja = jmp | 0x0,
@@ -233,8 +233,8 @@ pub const Instruction = packed struct(u64) {
         pub fn is64(opcode: OpCode) bool {
             const class: u3 = @truncate(@intFromEnum(opcode));
             return switch (class) {
-                alu64_store => true,
-                alu32_load => false,
+                alu64 => true,
+                alu32 => false,
                 else => std.debug.panic("TODO: {s}", .{@tagName(opcode)}),
             };
         }
@@ -274,57 +274,57 @@ pub const Instruction = packed struct(u64) {
 
     pub const map = std.StaticStringMap(Entry).initComptime(&.{
         // zig fmt: off
-        .{ "mov"  , .{ .inst = .alu_binary, .opc = mov | alu64_store } }, 
-        .{ "mov64", .{ .inst = .alu_binary, .opc = mov | alu64_store } },
-        .{ "mov32", .{ .inst = .alu_binary, .opc = mov | alu32_load  } },
+        .{ "mov"  , .{ .inst = .alu_binary, .opc = mov | alu64 } }, 
+        .{ "mov64", .{ .inst = .alu_binary, .opc = mov | alu64 } },
+        .{ "mov32", .{ .inst = .alu_binary, .opc = mov | alu32  } },
         
-        .{ "add"  , .{ .inst = .alu_binary, .opc = add | alu64_store } },
-        .{ "add64", .{ .inst = .alu_binary, .opc = add | alu64_store } },
-        .{ "add32", .{ .inst = .alu_binary, .opc = add | alu32_load  } },
+        .{ "add"  , .{ .inst = .alu_binary, .opc = add | alu64 } },
+        .{ "add64", .{ .inst = .alu_binary, .opc = add | alu64 } },
+        .{ "add32", .{ .inst = .alu_binary, .opc = add | alu32  } },
 
-        .{ "mul"  , .{ .inst = .alu_binary, .opc = mul | alu64_store } },
-        .{ "mul64", .{ .inst = .alu_binary, .opc = mul | alu64_store } },
-        .{ "mul32", .{ .inst = .alu_binary, .opc = mul | alu32_load  } },
+        .{ "mul"  , .{ .inst = .alu_binary, .opc = mul | alu64 } },
+        .{ "mul64", .{ .inst = .alu_binary, .opc = mul | alu64 } },
+        .{ "mul32", .{ .inst = .alu_binary, .opc = mul | alu32  } },
 
-        .{ "sub"  , .{ .inst = .alu_binary, .opc = sub | alu64_store } },
-        .{ "sub64", .{ .inst = .alu_binary, .opc = sub | alu64_store } },
-        .{ "sub32", .{ .inst = .alu_binary, .opc = sub | alu32_load  } },
+        .{ "sub"  , .{ .inst = .alu_binary, .opc = sub | alu64 } },
+        .{ "sub64", .{ .inst = .alu_binary, .opc = sub | alu64 } },
+        .{ "sub32", .{ .inst = .alu_binary, .opc = sub | alu32  } },
 
-        .{ "div"  , .{ .inst = .alu_binary, .opc = div | alu64_store } },
-        .{ "div64", .{ .inst = .alu_binary, .opc = div | alu64_store } },
-        .{ "div32", .{ .inst = .alu_binary, .opc = div | alu32_load  } },
+        .{ "div"  , .{ .inst = .alu_binary, .opc = div | alu64 } },
+        .{ "div64", .{ .inst = .alu_binary, .opc = div | alu64 } },
+        .{ "div32", .{ .inst = .alu_binary, .opc = div | alu32  } },
         
-        .{ "xor"  , .{ .inst = .alu_binary, .opc = xor | alu64_store } },
-        .{ "xor64", .{ .inst = .alu_binary, .opc = xor | alu64_store } },
-        .{ "xor32", .{ .inst = .alu_binary, .opc = xor | alu32_load  } },
+        .{ "xor"  , .{ .inst = .alu_binary, .opc = xor | alu64 } },
+        .{ "xor64", .{ .inst = .alu_binary, .opc = xor | alu64 } },
+        .{ "xor32", .{ .inst = .alu_binary, .opc = xor | alu32  } },
 
-        .{ "or"  , .{ .inst = .alu_binary, .opc = @"or" | alu64_store } },
-        .{ "or64", .{ .inst = .alu_binary, .opc = @"or" | alu64_store } },
-        .{ "or32", .{ .inst = .alu_binary, .opc = @"or" | alu32_load  } },
+        .{ "or"  , .{ .inst = .alu_binary, .opc = @"or" | alu64 } },
+        .{ "or64", .{ .inst = .alu_binary, .opc = @"or" | alu64 } },
+        .{ "or32", .{ .inst = .alu_binary, .opc = @"or" | alu32  } },
 
-        .{ "and"  , .{ .inst = .alu_binary, .opc = @"and" | alu64_store } },
-        .{ "and64", .{ .inst = .alu_binary, .opc = @"and" | alu64_store } },
-        .{ "and32", .{ .inst = .alu_binary, .opc = @"and" | alu32_load  } },
+        .{ "and"  , .{ .inst = .alu_binary, .opc = @"and" | alu64 } },
+        .{ "and64", .{ .inst = .alu_binary, .opc = @"and" | alu64 } },
+        .{ "and32", .{ .inst = .alu_binary, .opc = @"and" | alu32  } },
 
-        .{ "mod"  , .{ .inst = .alu_binary, .opc = mod | alu64_store } },
-        .{ "mod64", .{ .inst = .alu_binary, .opc = mod | alu64_store } },
-        .{ "mod32", .{ .inst = .alu_binary, .opc = mod | alu32_load  } },
+        .{ "mod"  , .{ .inst = .alu_binary, .opc = mod | alu64 } },
+        .{ "mod64", .{ .inst = .alu_binary, .opc = mod | alu64 } },
+        .{ "mod32", .{ .inst = .alu_binary, .opc = mod | alu32  } },
 
-        .{ "arsh"  , .{ .inst = .alu_binary, .opc = arsh | alu64_store } },
-        .{ "arsh64", .{ .inst = .alu_binary, .opc = arsh | alu64_store } },
-        .{ "arsh32", .{ .inst = .alu_binary, .opc = arsh | alu32_load  } },
+        .{ "arsh"  , .{ .inst = .alu_binary, .opc = arsh | alu64 } },
+        .{ "arsh64", .{ .inst = .alu_binary, .opc = arsh | alu64 } },
+        .{ "arsh32", .{ .inst = .alu_binary, .opc = arsh | alu32  } },
 
-        .{ "lsh"  , .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
-        .{ "lsh64", .{ .inst = .alu_binary, .opc = lsh | alu64_store } },
-        .{ "lsh32", .{ .inst = .alu_binary, .opc = lsh | alu32_load  } },
+        .{ "lsh"  , .{ .inst = .alu_binary, .opc = lsh | alu64 } },
+        .{ "lsh64", .{ .inst = .alu_binary, .opc = lsh | alu64 } },
+        .{ "lsh32", .{ .inst = .alu_binary, .opc = lsh | alu32  } },
 
-        .{ "rsh"  , .{ .inst = .alu_binary, .opc = rsh | alu64_store } },
-        .{ "rsh64", .{ .inst = .alu_binary, .opc = rsh | alu64_store } },
-        .{ "rsh32", .{ .inst = .alu_binary, .opc = rsh | alu32_load  } },
+        .{ "rsh"  , .{ .inst = .alu_binary, .opc = rsh | alu64 } },
+        .{ "rsh64", .{ .inst = .alu_binary, .opc = rsh | alu64 } },
+        .{ "rsh32", .{ .inst = .alu_binary, .opc = rsh | alu32  } },
         
-        .{ "neg"  , .{ .inst = .alu_unary,  .opc = neg | alu64_store } },
-        .{ "neg64", .{ .inst = .alu_unary,  .opc = neg | alu64_store } },
-        .{ "neg32", .{ .inst = .alu_unary,  .opc = neg | alu32_load  } },
+        .{ "neg"  , .{ .inst = .alu_unary,  .opc = neg | alu64 } },
+        .{ "neg64", .{ .inst = .alu_unary,  .opc = neg | alu64 } },
+        .{ "neg32", .{ .inst = .alu_unary,  .opc = neg | alu32  } },
 
         .{ "ja"   , .{ .inst = .jump_unconditional, .opc = ja | jmp } },
 
@@ -355,13 +355,13 @@ pub const Instruction = packed struct(u64) {
         .{ "stxw"  , .{ .inst = .store_reg,        .opc = mem | stx | w   } },
         .{ "stxdw" , .{ .inst = .store_reg,        .opc = mem | stx | dw  } },
 
-        .{ "be16", .{ .inst = .{.endian = 16 }, .opc = alu32_load | x | end } },
-        .{ "be32", .{ .inst = .{.endian = 32 }, .opc = alu32_load | x | end } },
-        .{ "be64", .{ .inst = .{.endian = 64 }, .opc = alu32_load | x | end } },
+        .{ "be16", .{ .inst = .{.endian = 16 }, .opc = alu32 | x | end } },
+        .{ "be32", .{ .inst = .{.endian = 32 }, .opc = alu32 | x | end } },
+        .{ "be64", .{ .inst = .{.endian = 64 }, .opc = alu32 | x | end } },
 
-        .{ "le16", .{ .inst = .{.endian = 16 }, .opc = alu32_load | k | end } },
-        .{ "le32", .{ .inst = .{.endian = 32 }, .opc = alu32_load | k | end } },
-        .{ "le64", .{ .inst = .{.endian = 64 }, .opc = alu32_load | k | end } },
+        .{ "le16", .{ .inst = .{.endian = 16 }, .opc = alu32 | k | end } },
+        .{ "le32", .{ .inst = .{.endian = 32 }, .opc = alu32 | k | end } },
+        .{ "le64", .{ .inst = .{.endian = 64 }, .opc = alu32 | k | end } },
 
         .{ "exit"  , .{ .inst = .no_operand,       .opc = jmp | exit_code } },
         .{ "lddw"  , .{ .inst = .load_dw_imm,      .opc = ld  | imm | dw  } },
@@ -379,14 +379,14 @@ pub const Instruction = packed struct(u64) {
     pub const st = 0b0010;
     /// store valu from register
     pub const stx = 0b0011;
-    /// 32 bit arithmetic  @"or" load
-    pub const alu32_load = 0b0100;
+    /// 32 bit arithmetic
+    pub const alu32 = 0b0100;
     /// control flow
     pub const jmp = 0b0101;
     /// product / quotient / remainder
     pub const pqr = 0b0110;
-    /// 64 bit arithmetic  @"or" store
-    pub const alu64_store = 0b0111;
+    /// 64 bit arithmetic
+    pub const alu64 = 0b0111;
 
     /// source operand modifier: `src` register
     pub const x = 0b1000;
