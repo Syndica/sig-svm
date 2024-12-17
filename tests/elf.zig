@@ -13,6 +13,9 @@ const Region = memory.Region;
 const expectEqual = std.testing.expectEqual;
 
 test "BPF_64_64 sbpfv1" {
+    // [ 1] .text             PROGBITS        0000000000000120 000120 000018 00  AX  0   0  8
+    // prints the address of the first byte in the .text section
+
     const allocator = std.testing.allocator;
 
     const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_64_sbpfv1.so", .{});
@@ -24,6 +27,24 @@ test "BPF_64_64 sbpfv1" {
     try testElfWithMemory(
         &elf,
         memory.PROGRAM_START + 0x120,
+    );
+}
+
+test "BPF_64_RELATIVE data sbpv1" {
+    // [ 1] .text             PROGBITS        00000000000000e8 0000e8 000020 00  AX  0   0  8
+    // [ 2] .rodata           PROGBITS        0000000000000108 000108 000019 01 AMS  0   0  1
+    // prints the address of the first byte in the .rodata sections
+    const allocator = std.testing.allocator;
+
+    const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_relative_data_sbpfv1.so", .{});
+    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    defer allocator.free(bytes);
+
+    const elf = try Elf.parse(bytes);
+
+    try testElfWithMemory(
+        &elf,
+        memory.PROGRAM_START + 0x108,
     );
 }
 
@@ -39,21 +60,6 @@ test "BPF_64_RELATIVE sbpv1" {
     try testElfWithMemory(
         &elf,
         memory.PROGRAM_START + 0x138,
-    );
-}
-
-test "BPF_64_RELATIVE data sbpv1" {
-    const allocator = std.testing.allocator;
-
-    const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_relative_data_sbpfv1.so", .{});
-    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
-    defer allocator.free(bytes);
-
-    const elf = try Elf.parse(bytes);
-
-    try testElfWithMemory(
-        &elf,
-        memory.PROGRAM_START + 0x108,
     );
 }
 
@@ -85,9 +91,9 @@ fn testElfWithMemory(
 
     const m = try MemoryMap.init(&.{
         executable.getRoRegion(),
-        Region.init(.writeable, stack_memory, memory.STACK_START),
-        Region.init(.readable, &.{}, memory.HEAP_START),
-        Region.init(.writeable, &.{}, memory.INPUT_START),
+        Region.init(.mutable, stack_memory, memory.STACK_START),
+        Region.init(.constant, &.{}, memory.HEAP_START),
+        Region.init(.mutable, &.{}, memory.INPUT_START),
     }, .v1);
 
     var vm = try Vm.init(&executable, m, allocator);

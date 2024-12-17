@@ -59,9 +59,9 @@ pub fn main() !void {
 
     const m = try MemoryMap.init(&.{
         executable.getRoRegion(),
-        memory.Region.init(.writeable, stack_memory, memory.STACK_START),
-        memory.Region.init(.writeable, &.{}, memory.HEAP_START),
-        memory.Region.init(.readable, input_mem, memory.INPUT_START),
+        memory.Region.init(.mutable, stack_memory, memory.STACK_START),
+        memory.Region.init(.mutable, &.{}, memory.HEAP_START),
+        memory.Region.init(.constant, input_mem, memory.INPUT_START),
     }, executable.version);
 
     var vm = try Vm.init(&executable, m, allocator);

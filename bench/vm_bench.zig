@@ -37,10 +37,10 @@ fn benchLong() !struct { u64, u64 } {
     defer allocator.free(stack_memory);
 
     const m = try MemoryMap.init(&.{
-        Region.init(.readable, &.{}, memory.PROGRAM_START),
-        Region.init(.writeable, stack_memory, memory.STACK_START),
-        Region.init(.readable, &.{}, memory.HEAP_START),
-        Region.init(.writeable, &.{}, memory.INPUT_START),
+        Region.init(.constant, &.{}, memory.PROGRAM_START),
+        Region.init(.mutable, stack_memory, memory.STACK_START),
+        Region.init(.constant, &.{}, memory.HEAP_START),
+        Region.init(.mutable, &.{}, memory.INPUT_START),
     }, .v1);
 
     return benchmarkVm(&executable, m, allocator);
@@ -60,9 +60,9 @@ fn benchSimple() !struct { u64, u64 } {
 
     const m = try MemoryMap.init(&.{
         executable.getRoRegion(),
-        Region.init(.writeable, stack_memory, memory.STACK_START),
-        Region.init(.readable, &.{}, memory.HEAP_START),
-        Region.init(.writeable, &.{}, memory.INPUT_START),
+        Region.init(.mutable, stack_memory, memory.STACK_START),
+        Region.init(.constant, &.{}, memory.HEAP_START),
+        Region.init(.mutable, &.{}, memory.INPUT_START),
     }, .v1);
 
     return benchmarkVm(&executable, m, allocator);

@@ -72,7 +72,7 @@ pub fn getRoRegion(exec: *const Executable) memory.Region {
         .owned => |o| .{ o.offset, o.data },
         .assembly => |a| .{ a.offset, exec.bytes[a.start..a.end] },
     };
-    return memory.Region.init(.readable, ro_data, memory.PROGRAM_START +| offset);
+    return memory.Region.init(.constant, ro_data, memory.PROGRAM_START +| offset);
 }
 
 const Assembler = struct {

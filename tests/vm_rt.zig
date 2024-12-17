@@ -620,7 +620,7 @@ test "ldxdw oom" {
         \\  exit
     ,
         &.{},
-        error.AccessViolation,
+        error.AccessNotMapped,
     );
 }
 
@@ -1511,7 +1511,7 @@ test "fixed stack out of bounds" {
         \\entrypoint:
         \\  stb [r10-0x4000], 0
         \\  exit
-    , error.AccessViolation);
+    , error.AccessNotMapped);
 }
 
 fn testAsm(source: []const u8, expected: anytype) !void {
@@ -1530,10 +1530,10 @@ fn testAsmWithMemory(source: []const u8, program_memory: []const u8, expected: a
     defer allocator.free(stack_memory);
 
     const m = try MemoryMap.init(&.{
-        Region.init(.readable, &.{}, memory.PROGRAM_START),
-        Region.init(.writeable, stack_memory, memory.STACK_START),
-        Region.init(.readable, &.{}, memory.HEAP_START),
-        Region.init(.writeable, mutable, memory.INPUT_START),
+        Region.init(.constant, &.{}, memory.PROGRAM_START),
+        Region.init(.mutable, stack_memory, memory.STACK_START),
+        Region.init(.constant, &.{}, memory.HEAP_START),
+        Region.init(.mutable, mutable, memory.INPUT_START),
     }, .v1);
 
     var vm = try Vm.init(&executable, m, allocator);

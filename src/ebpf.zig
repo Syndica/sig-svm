@@ -239,11 +239,11 @@ pub const Instruction = packed struct(u64) {
             };
         }
 
-        pub fn accessType(opcode: OpCode) memory.AccessType {
+        pub fn accessType(opcode: OpCode) memory.MemoryState {
             const class: u3 = @truncate(@intFromEnum(opcode));
             return switch (class) {
-                ld, ldx => .load,
-                st, stx => .store,
+                ld, ldx => .constant,
+                st, stx => .mutable,
                 else => std.debug.panic("TODO: {s}", .{@tagName(opcode)}),
             };
         }

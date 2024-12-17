@@ -65,7 +65,7 @@ fn parseHeader(input: *Elf) !void {
 
     input.strtab = input.shdrSlice(input.header.e_shstrndx);
 
-    const text_section = input.getShdrByName(".text").?;
+    const text_section = input.getShdrByName(".text") orelse return error.NoTextSection;
     const offset = input.header.e_entry -| text_section.sh_addr;
     input.entry_pc = try std.math.divExact(u64, offset, 8);
 
@@ -158,7 +158,7 @@ pub fn parseRoSections(input: *const Elf, gpa: std.mem.Allocator) !Executable.Se
         ".text",
         ".rodata",
         ".data.rel.ro",
-        ".eh_frame",
+        // ".eh_frame",
     };
 
     var lowest_addr: usize = std.math.maxInt(usize);

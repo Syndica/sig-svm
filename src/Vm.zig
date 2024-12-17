@@ -209,12 +209,12 @@ fn step(vm: *Vm) !bool {
             };
 
             const access = code.accessType();
-            const address = if (access == .load) inst.src else inst.dst;
+            const address = if (access == .constant) inst.src else inst.dst;
             const vaddr: u64 = @bitCast(@as(i64, @bitCast(registers.get(address))) +% inst.off);
 
-            switch (code.accessType()) {
-                .load => registers.set(inst.dst, try vm.load(T, vaddr)),
-                .store => {
+            switch (access) {
+                .constant => registers.set(inst.dst, try vm.load(T, vaddr)),
+                .mutable => {
                     const operand = switch (@as(u3, @truncate(@intFromEnum(opcode)))) {
                         Instruction.stx => registers.get(inst.src),
                         Instruction.st => inst.imm,
@@ -329,12 +329,12 @@ fn step(vm: *Vm) !bool {
 }
 
 fn load(vm: *Vm, T: type, vm_addr: u64) !T {
-    const slice = try vm.memory_map.vmap(.load, vm_addr, @sizeOf(T));
+    const slice = try vm.memory_map.vmap(.constant, vm_addr, @sizeOf(T));
     return std.mem.readInt(T, slice[0..@sizeOf(T)], .little);
 }
 
 fn store(vm: *Vm, T: type, vm_addr: u64, value: T) !void {
-    const slice = try vm.memory_map.vmap(.store, vm_addr, @sizeOf(T));
+    const slice = try vm.memory_map.vmap(.mutable, vm_addr, @sizeOf(T));
     slice[0..@sizeOf(T)].* = @bitCast(value);
 }
 
