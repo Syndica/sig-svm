@@ -27,6 +27,7 @@ function_registry: Executable.Registry(u32),
 pub fn parse(
     bytes: []u8,
     allocator: std.mem.Allocator,
+    loader: *Executable.BuiltinProgram,
 ) !Elf {
     const header_buffer = bytes[0..@sizeOf(elf.Elf64_Ehdr)];
 
@@ -48,7 +49,7 @@ pub fn parse(
     try input.parseDynamic();
 
     try input.validate();
-    try input.relocate(allocator);
+    try input.relocate(allocator, loader);
 
     return input;
 }
@@ -306,7 +307,11 @@ fn validate(input: *Elf) !void {
     }
 }
 
-fn relocate(input: *Elf, allocator: std.mem.Allocator) !void {
+fn relocate(
+    input: *Elf,
+    allocator: std.mem.Allocator,
+    loader: *Executable.BuiltinProgram,
+) !void {
     const text_section_index = input.getShdrIndexByName(".text") orelse
         return error.ShdrNotFound;
     const text_section = input.shdrs[text_section_index];
@@ -318,7 +323,7 @@ fn relocate(input: *Elf, allocator: std.mem.Allocator) !void {
         if (inst.opcode == .call_imm and inst.imm != ~@as(u32, 0)) {
             const target_pc = i +| 1 +| inst.imm;
             if (target_pc >= instructions.len) return error.RelativeJumpOutOfBounds;
-            const key = try input.function_registry.registerFunctionHashed(
+            const key = try input.function_registry.registerFunctionHashedLegacy(
                 allocator,
                 &.{},
                 @intCast(target_pc),
@@ -408,6 +413,36 @@ fn relocate(input: *Elf, allocator: std.mem.Allocator) !void {
                         std.mem.writeInt(u64, input.bytes[r_offset..][0..8], ref_addr, .little);
                     } else @panic("TODO");
                 }
+            },
+            .@"32" => {
+                // This relocation handles resolving calls to symbols
+                // Hash the symbol name with Murmur and relocate the instruction's imm field.
+                const imm_offset = r_offset +| 4;
+                if (reloc.r_sym() >= input.dynamic_symbol_table.len) return error.UnknownSymbol;
+                const symbol = input.dynamic_symbol_table[reloc.r_sym()];
+
+                const dynstr_index = input.getShdrIndexByName(".dynstr") orelse return error.NoDynStrSection;
+                const dynstr = input.shdrSlice(dynstr_index);
+                const symbol_name = std.mem.sliceTo(dynstr[symbol.st_name..], 0);
+
+                // If the symbol is defined, this is a bpf-to-bpf call.
+                const key: u32 = if (symbol.st_type() == elf.STT_FUNC and symbol.st_value != 0) key: {
+                    const target_pc = (symbol.st_value -| text_section.sh_addr) / 8;
+                    break :key try input.function_registry.registerFunctionHashedLegacy(
+                        allocator,
+                        symbol_name,
+                        @intCast(target_pc),
+                    );
+                } else key: {
+                    const hash = ebpf.hashSymbolName(symbol_name);
+                    if (loader.functions.lookupKey(hash) == null) {
+                        return error.UnresolvedSymbol;
+                    }
+                    break :key hash;
+                };
+
+                const slice = input.bytes[imm_offset..][0..4];
+                std.mem.writeInt(u32, slice, key, .little);
             },
             else => |t| std.debug.panic("TODO: handle relocation {s}", .{@tagName(t)}),
         }

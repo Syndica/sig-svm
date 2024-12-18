@@ -1536,7 +1536,8 @@ fn testAsmWithMemory(source: []const u8, program_memory: []const u8, expected: a
         Region.init(.mutable, mutable, memory.INPUT_START),
     }, .v1);
 
-    var vm = try Vm.init(&executable, m, allocator);
+    var loader: Executable.BuiltinProgram = .{};
+    var vm = try Vm.init(allocator, &executable, m, &loader);
     defer vm.deinit();
 
     const result = vm.run();

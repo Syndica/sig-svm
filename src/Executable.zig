@@ -2,6 +2,7 @@ const std = @import("std");
 const ebpf = @import("ebpf.zig");
 const Elf = @import("Elf.zig");
 const memory = @import("memory.zig");
+const Vm = @import("Vm.zig");
 const Executable = @This();
 
 bytes: []const u8,
@@ -311,7 +312,7 @@ const Assembler = struct {
         const entry_pc = if (function_registry.lookupName("entrypoint")) |entry|
             entry.value
         else pc: {
-            _ = try function_registry.registerFunctionHashed(allocator, "entrypoint", 0);
+            _ = try function_registry.registerFunctionHashedLegacy(allocator, "entrypoint", 0);
             break :pc 0;
         };
 
@@ -432,15 +433,25 @@ pub fn Registry(T: type) type {
             name: []const u8,
             value: T,
         ) !u32 {
+            const key = ebpf.hashSymbolName(name);
+            try registry.registerFunction(allocator, key, name, value);
+            return key;
+        }
+
+        pub fn registerFunctionHashedLegacy(
+            registry: *Self,
+            allocator: std.mem.Allocator,
+            name: []const u8,
+            value: T,
+        ) !u32 {
             const hash = if (std.mem.eql(u8, name, "entrypoint"))
                 ebpf.hashSymbolName(name)
             else
-                ebpf.hashSymbolName(std.mem.asBytes(&value));
+                ebpf.hashSymbolName(&std.mem.toBytes(value));
             try registry.registerFunction(allocator, hash, &.{}, value);
             return hash;
         }
 
-        // TODO: this can be sped up by using a bidirectional map
         pub fn lookupKey(registry: *const Self, key: u32) ?Entry {
             return registry.map.get(key);
         }
@@ -463,3 +474,13 @@ pub fn Registry(T: type) type {
         }
     };
 }
+
+pub const SyscallError = error{ InvalidVirtualAddress, AccessNotMapped };
+
+pub const BuiltinProgram = struct {
+    functions: Registry(*const fn (*Vm) SyscallError!void) = .{},
+
+    pub fn deinit(program: *BuiltinProgram, allocator: std.mem.Allocator) void {
+        program.functions.deinit(allocator);
+    }
+};

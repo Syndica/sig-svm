@@ -14,6 +14,7 @@ executable: *const Executable,
 
 registers: std.EnumArray(ebpf.Instruction.Register, u64),
 memory_map: MemoryMap,
+loader: *const Executable.BuiltinProgram,
 
 vm_addr: u64,
 stack_pointer: u64,
@@ -22,9 +23,10 @@ depth: u64,
 instruction_count: u64,
 
 pub fn init(
+    allocator: std.mem.Allocator,
     executable: *const Executable,
     memory_map: MemoryMap,
-    allocator: std.mem.Allocator,
+    loader: *const Executable.BuiltinProgram,
 ) !Vm {
     var vm: Vm = .{
         .executable = executable,
@@ -36,6 +38,7 @@ pub fn init(
         .call_frames = try std.ArrayListUnmanaged(CallFrame).initCapacity(allocator, 64),
         .instruction_count = 0,
         .vm_addr = executable.text_vaddr,
+        .loader = loader,
     };
 
     vm.registers.set(.r10, memory.STACK_START + 4096);
@@ -311,6 +314,9 @@ fn step(vm: *Vm) !bool {
             if (vm.executable.function_registry.lookupKey(inst.imm)) |entry| {
                 try vm.pushCallFrame();
                 next_pc = entry.value;
+            } else if (vm.loader.functions.lookupKey(inst.imm)) |entry| {
+                const builtin_fn = entry.value;
+                try builtin_fn(vm);
             } else {
                 return error.UnresolvedFunction;
             }
