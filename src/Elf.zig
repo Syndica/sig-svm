@@ -7,7 +7,6 @@ const Executable = @import("Executable.zig");
 const Elf = @This();
 
 const elf = std.elf;
-const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
 bytes: []u8,
@@ -79,7 +78,8 @@ fn parseHeader(input: *Elf) !void {
         .v2
     else
         .v1;
-    if (sbpf_version != .v1) std.debug.panic("found sbpf version: {s}, support it!", .{@tagName(sbpf_version)});
+    if (sbpf_version != .v1)
+        std.debug.panic("found sbpf version: {s}, support it!", .{@tagName(sbpf_version)});
     input.version = sbpf_version;
 }
 
@@ -177,7 +177,10 @@ pub fn parseRoSections(input: *const Elf, gpa: std.mem.Allocator) !Executable.Se
     var last_ro_section: usize = 0;
     var n_ro_sections: usize = 0;
 
-    var ro_slices = try std.ArrayListUnmanaged(struct { usize, []const u8 }).initCapacity(gpa, input.shdrs.len);
+    var ro_slices = try std.ArrayListUnmanaged(struct {
+        usize,
+        []const u8,
+    }).initCapacity(gpa, input.shdrs.len);
     defer ro_slices.deinit(gpa);
 
     for (input.shdrs, 0..) |shdr, i| {
@@ -408,7 +411,11 @@ fn relocate(
                     }
                 } else {
                     if (input.version == .v1) {
-                        const address = std.mem.readInt(u32, input.bytes[imm_offset..][0..4], .little);
+                        const address = std.mem.readInt(
+                            u32,
+                            input.bytes[imm_offset..][0..4],
+                            .little,
+                        );
                         const ref_addr = memory.PROGRAM_START +| address;
                         std.mem.writeInt(u64, input.bytes[r_offset..][0..8], ref_addr, .little);
                     } else @panic("TODO");
@@ -421,28 +428,29 @@ fn relocate(
                 if (reloc.r_sym() >= input.dynamic_symbol_table.len) return error.UnknownSymbol;
                 const symbol = input.dynamic_symbol_table[reloc.r_sym()];
 
-                const dynstr_index = input.getShdrIndexByName(".dynstr") orelse return error.NoDynStrSection;
+                const dynstr_index = input.getShdrIndexByName(".dynstr") orelse
+                    return error.NoDynStrSection;
                 const dynstr = input.shdrSlice(dynstr_index);
                 const symbol_name = std.mem.sliceTo(dynstr[symbol.st_name..], 0);
 
                 // If the symbol is defined, this is a bpf-to-bpf call.
-                const key: u32 = if (symbol.st_type() == elf.STT_FUNC and symbol.st_value != 0) key: {
+                if (symbol.st_type() == elf.STT_FUNC and symbol.st_value != 0) {
                     const target_pc = (symbol.st_value -| text_section.sh_addr) / 8;
-                    break :key try input.function_registry.registerFunctionHashedLegacy(
+                    const key = try input.function_registry.registerFunctionHashedLegacy(
                         allocator,
                         symbol_name,
                         @intCast(target_pc),
                     );
-                } else key: {
+                    const slice = input.bytes[imm_offset..][0..4];
+                    std.mem.writeInt(u32, slice, key, .little);
+                } else {
                     const hash = ebpf.hashSymbolName(symbol_name);
                     if (loader.functions.lookupKey(hash) == null) {
                         return error.UnresolvedSymbol;
                     }
-                    break :key hash;
-                };
-
-                const slice = input.bytes[imm_offset..][0..4];
-                std.mem.writeInt(u32, slice, key, .little);
+                    const slice = input.bytes[imm_offset..][0..4];
+                    std.mem.writeInt(u32, slice, hash, .little);
+                }
             },
             else => |t| std.debug.panic("TODO: handle relocation {s}", .{@tagName(t)}),
         }

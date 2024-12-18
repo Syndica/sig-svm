@@ -13,7 +13,10 @@ const ITERS = 1_000;
 pub fn main() !void {
     const avg_ns, const num_instructions = try benchLong();
     std.debug.print("num inst: {}\n", .{num_instructions});
-    std.debug.print("avg: {}, avg: {}ns/inst\n", .{ std.fmt.fmtDuration(avg_ns), avg_ns / num_instructions });
+    std.debug.print(
+        "avg: {}, avg: {}ns/inst\n",
+        .{ std.fmt.fmtDuration(avg_ns), avg_ns / num_instructions },
+    );
 }
 
 fn benchLong() !struct { u64, u64 } {

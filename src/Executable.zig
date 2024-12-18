@@ -54,7 +54,11 @@ pub fn fromAsm(allocator: std.mem.Allocator, source: []const u8) !Executable {
 /// than 1 like they would be if we created the executable from the Elf file. The GPA
 /// requires allocations and deallocations to be made with the same semantic alignment.
 pub fn deinit(exec: *Executable, allocator: std.mem.Allocator) void {
-    if (!exec.from_elf) allocator.free(@as([]const ebpf.Instruction, @alignCast(exec.instructions)));
+    if (!exec.from_elf) allocator.free(@as(
+        []const ebpf.Instruction,
+        @alignCast(exec.instructions),
+    ));
+
     switch (exec.ro_section) {
         .owned => |owned| allocator.free(owned.data),
         else => {},
@@ -259,8 +263,13 @@ const Assembler = struct {
                                     .imm = @intCast(target_pc),
                                 };
                             } else {
-                                const target_pc: u32 = @intCast(operands[0].integer + inst_ptr + 1);
-                                const label = try std.fmt.allocPrint(allocator, "function_{}", .{target_pc});
+                                const offset = operands[0].integer;
+                                const target_pc: u32 = @intCast(offset + inst_ptr + 1);
+                                const label = try std.fmt.allocPrint(
+                                    allocator,
+                                    "function_{}",
+                                    .{target_pc},
+                                );
                                 defer allocator.free(label);
                                 try function_registry.registerFunction(
                                     allocator,
@@ -380,7 +389,10 @@ const Assembler = struct {
                     const reg = std.meta.stringToEnum(ebpf.Instruction.Register, base) orelse
                         @panic("unknown register");
 
-                    try operands.append(allocator, .{ .memory = .{ .base = reg, .offset = offset } });
+                    try operands.append(allocator, .{ .memory = .{
+                        .base = reg,
+                        .offset = offset,
+                    } });
                     continue;
                 } else if (std.mem.startsWith(u8, op, "function_")) {
                     try operands.append(allocator, .{ .label = op });

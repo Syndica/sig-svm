@@ -276,7 +276,10 @@ fn step(vm: *Vm) !bool {
 
             // for the signed variants
             const lhs_signed: i64 = @bitCast(lhs);
-            const rhs_signed: i64 = if (opcode.isReg()) @bitCast(rhs) else @as(i32, @bitCast(inst.imm));
+            const rhs_signed: i64 = if (opcode.isReg())
+                @bitCast(rhs)
+            else
+                @as(i32, @bitCast(inst.imm));
 
             const predicate: bool = switch (opcode) {
                 // zig fmt: off
