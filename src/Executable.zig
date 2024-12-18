@@ -477,7 +477,7 @@ pub fn Registry(T: type) type {
             return null;
         }
 
-        fn deinit(registry: *Self, allocator: std.mem.Allocator) void {
+        pub fn deinit(registry: *Self, allocator: std.mem.Allocator) void {
             var iter = registry.map.valueIterator();
             while (iter.next()) |entry| {
                 allocator.free(entry.name);

@@ -9,7 +9,7 @@ const Vm = @import("Vm.zig");
 const ebpf = @import("ebpf.zig");
 
 pub fn main() !void {
-    var gpa: std.heap.GeneralPurposeAllocator(.{}) = .{};
+    var gpa: std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 100 }) = .{};
     defer _ = gpa.deinit();
     const allocator = if (builtin.mode == .Debug)
         gpa.allocator()
@@ -43,10 +43,12 @@ pub fn main() !void {
     const bytes = try input_file.readToEndAlloc(allocator, ebpf.MAX_FILE_SIZE);
     defer allocator.free(bytes);
 
+    var loader: Executable.BuiltinProgram = .{};
+
     var executable = if (assemble)
         try Executable.fromAsm(allocator, bytes)
     else exec: {
-        const elf = try Elf.parse(bytes, allocator);
+        const elf = try Elf.parse(bytes, allocator, &loader);
         break :exec try Executable.fromElf(allocator, &elf);
     };
     defer executable.deinit(allocator);
@@ -65,7 +67,7 @@ pub fn main() !void {
         memory.Region.init(.constant, input_mem, memory.INPUT_START),
     }, executable.version);
 
-    var vm = try Vm.init(&executable, m, allocator);
+    var vm = try Vm.init(allocator, &executable, m, &loader);
     defer vm.deinit();
     const result = try vm.run();
 

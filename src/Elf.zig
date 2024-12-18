@@ -43,6 +43,7 @@ pub fn parse(
         .dynamic_symbol_table = &.{},
         .function_registry = .{},
     };
+    errdefer input.function_registry.deinit(allocator);
 
     try input.parseHeader();
     try input.parseDynamic();
