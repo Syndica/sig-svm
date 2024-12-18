@@ -9,6 +9,7 @@ const Executable = svm.Executable;
 const memory = svm.memory;
 const MemoryMap = memory.MemoryMap;
 const Region = memory.Region;
+const ebpf = svm.ebpf;
 
 const expectEqual = std.testing.expectEqual;
 
@@ -19,10 +20,10 @@ test "BPF_64_64 sbpfv1" {
     const allocator = std.testing.allocator;
 
     const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_64_sbpfv1.so", .{});
-    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    const bytes = try input_file.readToEndAlloc(allocator, ebpf.MAX_FILE_SIZE);
     defer allocator.free(bytes);
 
-    const elf = try Elf.parse(bytes);
+    const elf = try Elf.parse(bytes, allocator);
 
     try testElfWithMemory(
         &elf,
@@ -37,10 +38,10 @@ test "BPF_64_RELATIVE data sbpv1" {
     const allocator = std.testing.allocator;
 
     const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_relative_data_sbpfv1.so", .{});
-    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    const bytes = try input_file.readToEndAlloc(allocator, ebpf.MAX_FILE_SIZE);
     defer allocator.free(bytes);
 
-    const elf = try Elf.parse(bytes);
+    const elf = try Elf.parse(bytes, allocator);
 
     try testElfWithMemory(
         &elf,
@@ -52,10 +53,10 @@ test "BPF_64_RELATIVE sbpv1" {
     const allocator = std.testing.allocator;
 
     const input_file = try std.fs.cwd().openFile("tests/elfs/reloc_64_relative_sbpfv1.so", .{});
-    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    const bytes = try input_file.readToEndAlloc(allocator, ebpf.MAX_FILE_SIZE);
     defer allocator.free(bytes);
 
-    const elf = try Elf.parse(bytes);
+    const elf = try Elf.parse(bytes, allocator);
 
     try testElfWithMemory(
         &elf,
@@ -67,14 +68,29 @@ test "load elf rodata sbpfv1" {
     const allocator = std.testing.allocator;
 
     const input_file = try std.fs.cwd().openFile("tests/elfs/rodata_section_sbpfv1.so", .{});
-    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    const bytes = try input_file.readToEndAlloc(allocator, ebpf.MAX_FILE_SIZE);
     defer allocator.free(bytes);
 
-    const elf = try Elf.parse(bytes);
+    const elf = try Elf.parse(bytes, allocator);
 
     try testElfWithMemory(
         &elf,
         42,
+    );
+}
+
+test "static internal call sbpv1" {
+    const allocator = std.testing.allocator;
+
+    const input_file = try std.fs.cwd().openFile("tests/elfs/static_internal_call_sbpfv1.so", .{});
+    const bytes = try input_file.readToEndAlloc(allocator, ebpf.MAX_FILE_SIZE);
+    defer allocator.free(bytes);
+
+    const elf = try Elf.parse(bytes, allocator);
+
+    try testElfWithMemory(
+        &elf,
+        10,
     );
 }
 

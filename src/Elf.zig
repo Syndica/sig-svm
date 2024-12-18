@@ -22,8 +22,12 @@ dynamic_symbol_table: []align(1) const elf.Elf64_Sym,
 
 entry_pc: u64,
 version: ebpf.SBPFVersion,
+function_registry: Executable.Registry(u32),
 
-pub fn parse(bytes: []u8) !Elf {
+pub fn parse(
+    bytes: []u8,
+    allocator: std.mem.Allocator,
+) !Elf {
     const header_buffer = bytes[0..@sizeOf(elf.Elf64_Ehdr)];
 
     var input: Elf = .{
@@ -37,13 +41,14 @@ pub fn parse(bytes: []u8) !Elf {
         .dynamic_table = .{0} ** elf.DT_NUM,
         .dynamic_relocations_table = &.{},
         .dynamic_symbol_table = &.{},
+        .function_registry = .{},
     };
 
     try input.parseHeader();
     try input.parseDynamic();
 
     try input.validate();
-    try input.relocate();
+    try input.relocate(allocator);
 
     return input;
 }
@@ -301,10 +306,29 @@ fn validate(input: *Elf) !void {
     }
 }
 
-fn relocate(input: *Elf) !void {
+fn relocate(input: *Elf, allocator: std.mem.Allocator) !void {
     const text_section_index = input.getShdrIndexByName(".text") orelse
         return error.ShdrNotFound;
     const text_section = input.shdrs[text_section_index];
+
+    // fixup PC-relative call instructions
+    const text_bytes: []u8 = input.bytes[text_section.sh_offset..][0..text_section.sh_size];
+    const instructions = try input.getInstructions();
+    for (instructions, 0..) |inst, i| {
+        if (inst.opcode == .call_imm and inst.imm != ~@as(u32, 0)) {
+            const target_pc = i +| 1 +| inst.imm;
+            if (target_pc >= instructions.len) return error.RelativeJumpOutOfBounds;
+            const key = try input.function_registry.registerFunctionHashed(
+                allocator,
+                &.{},
+                @intCast(target_pc),
+            );
+            // offset into the instruction where the immediate is stored
+            const offset = (i *| 8) +| 4;
+            const slice = text_bytes[offset..][0..4];
+            std.mem.writeInt(u32, slice, key, .little);
+        }
+    }
 
     for (input.dynamic_relocations_table) |reloc| {
         if (input.version != .v1) @panic("TODO here");

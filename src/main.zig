@@ -6,6 +6,7 @@ const memory = @import("memory.zig");
 const MemoryMap = memory.MemoryMap;
 const Executable = @import("Executable.zig");
 const Vm = @import("Vm.zig");
+const ebpf = @import("ebpf.zig");
 
 pub fn main() !void {
     var gpa: std.heap.GeneralPurposeAllocator(.{}) = .{};
@@ -39,13 +40,13 @@ pub fn main() !void {
     const input_file = try std.fs.cwd().openFile(input_path.?, .{});
     defer input_file.close();
 
-    const bytes = try input_file.readToEndAlloc(allocator, 10 * 1024);
+    const bytes = try input_file.readToEndAlloc(allocator, ebpf.MAX_FILE_SIZE);
     defer allocator.free(bytes);
 
     var executable = if (assemble)
         try Executable.fromAsm(allocator, bytes)
     else exec: {
-        const elf = try Elf.parse(bytes);
+        const elf = try Elf.parse(bytes, allocator);
         break :exec try Executable.fromElf(allocator, &elf);
     };
     defer executable.deinit(allocator);

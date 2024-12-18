@@ -66,6 +66,7 @@ fn step(vm: *Vm) !bool {
     const opcode = inst.opcode;
 
     switch (opcode) {
+        // alu operations
         .add64_reg,
         .add64_imm,
         .add32_reg,
@@ -171,6 +172,7 @@ fn step(vm: *Vm) !bool {
             registers.set(inst.dst, result);
         },
 
+        // loads/stores
         inline //
         .ld_b_reg,
         .st_b_reg,
@@ -240,6 +242,7 @@ fn step(vm: *Vm) !bool {
             else => return error.InvalidInstruction,
         }),
 
+        // branching
         .ja,
         .jeq_imm,
         .jeq_reg,
@@ -292,7 +295,7 @@ fn step(vm: *Vm) !bool {
             if (predicate) next_pc = target_pc;
         },
 
-        // other instructions
+        // calling
         .exit => {
             if (vm.depth == 0) {
                 return false;
@@ -305,9 +308,12 @@ fn step(vm: *Vm) !bool {
             next_pc = frame.return_pc;
         },
         .call_imm => {
-            try vm.pushCallFrame();
-            const target_pc = inst.imm;
-            next_pc = target_pc;
+            if (vm.executable.function_registry.lookupKey(inst.imm)) |entry| {
+                try vm.pushCallFrame();
+                next_pc = entry.value;
+            } else {
+                return error.UnresolvedFunction;
+            }
         },
         .call_reg => {
             try vm.pushCallFrame();
@@ -315,6 +321,8 @@ fn step(vm: *Vm) !bool {
             const target_pc = registers.get(@enumFromInt(inst.imm));
             next_pc = (target_pc -% vm.vm_addr) / 8;
         },
+
+        // other instructions
         .ld_dw_imm => {
             assert(vm.executable.version == .v1);
             const value: u64 = (@as(u64, instructions[next_pc].imm) << 32) | inst.imm;

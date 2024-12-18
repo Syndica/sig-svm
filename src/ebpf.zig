@@ -9,6 +9,8 @@ pub const EM_SBPF: std.elf.Elf64_Half = 263;
 pub const ELFOSABI_NONE: u8 = 0;
 pub const EI_OSABI: u8 = 7;
 
+pub const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 pub const SBPFVersion = enum {
     v0,
     v1,
@@ -519,6 +521,10 @@ pub const Instruction = packed struct(u64) {
         try writer.print("{}", .{inst.opcode});
     }
 };
+
+pub fn hashSymbolName(name: []const u8) u32 {
+   return std.hash.Murmur3_32.hash(name);
+}
 
 const std = @import("std");
 const memory = @import("memory.zig");

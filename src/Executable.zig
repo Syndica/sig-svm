@@ -11,6 +11,7 @@ entry_pc: u64,
 from_elf: bool,
 ro_section: Section,
 text_vaddr: u64,
+function_registry: Registry(u32),
 
 pub const Section = union(enum) {
     owned: Owned,
@@ -37,20 +38,12 @@ pub fn fromElf(allocator: std.mem.Allocator, elf: *const Elf) !Executable {
         .entry_pc = elf.entry_pc,
         .from_elf = true,
         .text_vaddr = elf.getShdrByName(".text").?.sh_addr,
+        .function_registry = elf.function_registry,
     };
 }
 
 pub fn fromAsm(allocator: std.mem.Allocator, source: []const u8) !Executable {
-    const instructions = try Assembler.parse(allocator, source);
-    return .{
-        .bytes = source,
-        .ro_section = .{ .assembly = .{ .offset = 0, .start = 0, .end = source.len } },
-        .instructions = instructions,
-        .version = .v1,
-        .entry_pc = 0,
-        .from_elf = false,
-        .text_vaddr = memory.PROGRAM_START,
-    };
+    return Assembler.parse(allocator, source);
 }
 
 /// Only call `deinit` if the executable was created with `fromAsm`.
@@ -65,6 +58,7 @@ pub fn deinit(exec: *Executable, allocator: std.mem.Allocator) void {
         .owned => |owned| allocator.free(owned.data),
         else => {},
     }
+    exec.function_registry.deinit(allocator);
 }
 
 pub fn getRoRegion(exec: *const Executable) memory.Region {
@@ -100,7 +94,7 @@ const Assembler = struct {
         };
     };
 
-    fn parse(allocator: std.mem.Allocator, source: []const u8) ![]align(1) const ebpf.Instruction {
+    fn parse(allocator: std.mem.Allocator, source: []const u8) !Executable {
         var assembler: Assembler = .{ .source = source };
         const statements = try assembler.tokenize(allocator);
         defer {
@@ -116,11 +110,23 @@ const Assembler = struct {
         var labels: std.StringHashMapUnmanaged(u64) = .{};
         defer labels.deinit(allocator);
 
+        var function_registry: Registry(u32) = .{};
+
         try labels.put(allocator, "entrypoint", 0);
-        var inst_ptr: u64 = 0;
+        var inst_ptr: u32 = 0;
         for (statements) |statement| {
             switch (statement) {
                 .label => |name| {
+                    if (std.mem.startsWith(u8, name, "function_") or
+                        std.mem.eql(u8, name, "entrypoint"))
+                    {
+                        try function_registry.registerFunction(
+                            allocator,
+                            inst_ptr,
+                            name,
+                            inst_ptr,
+                        );
+                    }
                     try labels.put(allocator, name, inst_ptr);
                 },
                 .instruction => |inst| {
@@ -131,6 +137,7 @@ const Assembler = struct {
 
         var instructions: std.ArrayListUnmanaged(ebpf.Instruction) = .{};
         defer instructions.deinit(allocator);
+        inst_ptr = 0;
 
         for (statements) |statement| {
             switch (statement) {
@@ -251,7 +258,22 @@ const Assembler = struct {
                                     .imm = @intCast(target_pc),
                                 };
                             } else {
-                                @panic("TODO: imm call");
+                                const target_pc: u32 = @intCast(operands[0].integer + inst_ptr + 1);
+                                const label = try std.fmt.allocPrint(allocator, "function_{}", .{target_pc});
+                                defer allocator.free(label);
+                                try function_registry.registerFunction(
+                                    allocator,
+                                    target_pc,
+                                    label,
+                                    target_pc,
+                                );
+                                break :inst .{
+                                    .opcode = @enumFromInt(bind.opc),
+                                    .dst = .r0,
+                                    .src = .r1,
+                                    .off = 0,
+                                    .imm = target_pc,
+                                };
                             }
                         },
                         .call_reg => .{
@@ -286,7 +308,23 @@ const Assembler = struct {
             }
         }
 
-        return instructions.toOwnedSlice(allocator);
+        const entry_pc = if (function_registry.lookupName("entrypoint")) |entry|
+            entry.value
+        else pc: {
+            _ = try function_registry.registerFunctionHashed(allocator, "entrypoint", 0);
+            break :pc 0;
+        };
+
+        return .{
+            .bytes = source,
+            .ro_section = .{ .assembly = .{ .offset = 0, .start = 0, .end = source.len } },
+            .instructions = try instructions.toOwnedSlice(allocator),
+            .version = .v1,
+            .entry_pc = entry_pc,
+            .from_elf = false,
+            .text_vaddr = memory.PROGRAM_START,
+            .function_registry = function_registry,
+        };
     }
 
     fn tokenize(assembler: *Assembler, allocator: std.mem.Allocator) ![]const Statement {
@@ -359,3 +397,69 @@ const Assembler = struct {
         return statements.toOwnedSlice(allocator);
     }
 };
+
+pub fn Registry(T: type) type {
+    return struct {
+        map: std.AutoHashMapUnmanaged(u32, Entry) = .{},
+
+        const Entry = struct {
+            name: []const u8,
+            value: T,
+        };
+        const Self = @This();
+
+        /// Duplicates `name` to free later.
+        fn registerFunction(
+            registry: *Self,
+            allocator: std.mem.Allocator,
+            key: u32,
+            name: []const u8,
+            value: T,
+        ) !void {
+            const gop = try registry.map.getOrPut(allocator, key);
+            if (gop.found_existing) {
+                if (!std.mem.eql(u8, gop.value_ptr.name, name)) {
+                    return error.SymbolHashCollision;
+                }
+            } else {
+                gop.value_ptr.* = .{ .name = try allocator.dupe(u8, name), .value = value };
+            }
+        }
+
+        pub fn registerFunctionHashed(
+            registry: *Self,
+            allocator: std.mem.Allocator,
+            name: []const u8,
+            value: T,
+        ) !u32 {
+            const hash = if (std.mem.eql(u8, name, "entrypoint"))
+                ebpf.hashSymbolName(name)
+            else
+                ebpf.hashSymbolName(std.mem.asBytes(&value));
+            try registry.registerFunction(allocator, hash, &.{}, value);
+            return hash;
+        }
+
+        // TODO: this can be sped up by using a bidirectional map
+        pub fn lookupKey(registry: *const Self, key: u32) ?Entry {
+            return registry.map.get(key);
+        }
+
+        // TODO: this can be sped up by using a bidirectional map
+        pub fn lookupName(registry: *const Self, name: []const u8) ?Entry {
+            var iter = registry.map.valueIterator();
+            while (iter.next()) |entry| {
+                if (std.mem.eql(u8, entry.name, name)) return entry.*;
+            }
+            return null;
+        }
+
+        fn deinit(registry: *Self, allocator: std.mem.Allocator) void {
+            var iter = registry.map.valueIterator();
+            while (iter.next()) |entry| {
+                allocator.free(entry.name);
+            }
+            registry.map.deinit(allocator);
+        }
+    };
+}
