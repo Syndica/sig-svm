@@ -33,7 +33,7 @@ pub fn init(
         .allocator = allocator,
         .registers = std.EnumArray(ebpf.Instruction.Register, u64).initFill(0),
         .memory_map = memory_map,
-        .stack_pointer = 0,
+        .stack_pointer = memory.STACK_START + 4096,
         .depth = 0,
         .call_frames = try std.ArrayListUnmanaged(CallFrame).initCapacity(allocator, 64),
         .instruction_count = 0,

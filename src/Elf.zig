@@ -325,8 +325,8 @@ fn relocate(
     const instructions = try input.getInstructions();
     for (instructions, 0..) |inst, i| {
         if (inst.opcode == .call_imm and inst.imm != ~@as(u32, 0)) {
-            const target_pc = i +| 1 +| inst.imm;
-            if (target_pc >= instructions.len) return error.RelativeJumpOutOfBounds;
+            const target_pc = @as(i64, @intCast(i)) +| 1 +| @as(i32, @bitCast(inst.imm));
+            if (target_pc < 0 or target_pc >= instructions.len) return error.RelativeJumpOutOfBounds;
             const key = try input.function_registry.registerFunctionHashedLegacy(
                 allocator,
                 &.{},
@@ -447,7 +447,8 @@ fn relocate(
                 } else {
                     const hash = ebpf.hashSymbolName(symbol_name);
                     if (loader.functions.lookupKey(hash) == null) {
-                        return error.UnresolvedSymbol;
+                        // return error.UnresolvedSymbol;
+                        @panic(symbol_name);
                     }
                     const slice = input.bytes[imm_offset..][0..4];
                     std.mem.writeInt(u32, slice, hash, .little);

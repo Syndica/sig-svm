@@ -61,7 +61,7 @@ fn testElf(path: []const u8, expected: anytype) !void {
 test "syscall reloc 64_32" {
     try testElfWithSyscalls(
         "tests/elfs/syscall_reloc_64_32.so",
-        &.{.{ .name = "log", .builtin_fn = svm.syscalls.syscallString }},
+        &.{.{ .name = "log", .builtin_fn = svm.syscalls.printString }},
         0,
     );
 }

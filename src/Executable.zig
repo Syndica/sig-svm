@@ -487,7 +487,13 @@ pub fn Registry(T: type) type {
     };
 }
 
-pub const SyscallError = error{ InvalidVirtualAddress, AccessNotMapped };
+pub const SyscallError = error{
+    InvalidVirtualAddress,
+    AccessNotMapped,
+    SyscallAbort,
+    AccessViolation,
+    VirtualAccessTooLong,
+};
 
 pub const BuiltinProgram = struct {
     functions: Registry(*const fn (*Vm) SyscallError!void) = .{},

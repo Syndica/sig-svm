@@ -106,7 +106,7 @@ pub const Region = struct {
             return host_slice[begin_offset..][0..len];
         }
 
-        return error.InvalidVirtualAddress;
+        return error.VirtualAccessTooLong;
     }
 };
 
@@ -172,7 +172,7 @@ test "aligned vmap" {
         try m.vmap(.constant, PROGRAM_START, 3),
     );
     try expectError(
-        error.InvalidVirtualAddress,
+        error.VirtualAccessTooLong,
         m.vmap(.constant, PROGRAM_START, 5),
     );
 

@@ -1,4 +1,3 @@
-- Syscall loader
 - Extend to support SBFv2
 - Extend testing suite to pass everything RBPF has
 - Perf testing?

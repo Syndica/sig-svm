@@ -518,7 +518,7 @@ pub const Instruction = packed struct(u64) {
     ) !void {
         comptime assert(fmt.len == 0);
 
-        try writer.print("{}", .{inst.opcode});
+        try writer.print("{s}", .{@tagName(inst.opcode)});
     }
 };
 
