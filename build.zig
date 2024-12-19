@@ -35,6 +35,7 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("src/lib.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
     const vm_test_exe = b.addTest(.{
