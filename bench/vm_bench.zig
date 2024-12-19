@@ -80,7 +80,8 @@ fn benchmarkVm(
     var num_instructions: ?u64 = null;
 
     for (0..ITERS) |_| {
-        var vm = try Vm.init(executable, m, allocator);
+        var loader: Executable.BuiltinProgram = .{};
+        var vm = try Vm.init(allocator, executable, m, &loader);
         defer vm.deinit();
 
         const start = try std.time.Instant.now();

@@ -51,7 +51,7 @@ const Pubkey = extern struct {
             value = value / base;
             buffer.appendAssumeCapacity(alphabet[@intCast(mod)]);
         }
-        const leading_zeros = @clz(@byteSwap(@as(u256, @bitCast(key.data)))) / 8;
+        const leading_zeros = @ctz(@as(u256, @bitCast(key.data))) / 8;
         buffer.appendNTimesAssumeCapacity(alphabet[0], leading_zeros);
 
         std.mem.reverse(u8, buffer.slice());
